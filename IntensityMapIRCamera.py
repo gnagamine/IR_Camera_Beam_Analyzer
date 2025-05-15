@@ -6,82 +6,191 @@ import matplotlib.pyplot as plt
 class IntensityMap:
     def __init__(self,
                  file_path: str,
-                 camera_name = 'HIKMICRO',):
+                 camera_name: str = 'HIKMICRO'):
         """
-        Initialize with the path to the CSV file.
+        Initialize with the path to the CSV file and camera name.
         """
         self.file_path = file_path
+        self.camera_name = camera_name
         self.data = None
+        self.header = None  # Initialize header attribute
 
     def load_data(self):
         """
-        Load the CSV file into a pandas dataframe, automatically skipping any
-        header lines (up to and including line 16).
-
-        The routine scans the file until it encounters the first row that is
-        fully numeric.  All preceding rows are treated as header / metadata and
-        stored in ``self.header``.  The remaining rows are parsed with
-        :pyfunc:`pandas.read_csv` and converted to a numerical
-        ``numpy.ndarray`` in ``self.data``.
+        Load data based on the camera type.
+        This is the primary method to call for loading data.
         """
-        import itertools
+        if self.camera_name == 'HIKMICRO':
+            self._load_data_hikmicro()
+        elif self.camera_name == 'NEC':
+            self._load_data_nec()
+        # Add more camera types here with `elif self.camera_name == 'OTHER_CAMERA': self._load_data_other_camera()`
+        else:
+            raise ValueError(f"Unsupported camera type: {self.camera_name}. "
+                             "Please implement a loading method for this camera.")
 
-        # ---------- Phase 1: detect number of header lines ------------------
+    def _is_cell_convertible_or_empty(self,
+                                      cell_str: str) -> bool:
+        """
+        Helper function to check if a cell string can be converted to float
+        or is empty (which pandas can handle as NaN).
+        It handles decimal points as '.' or ','.
+        """
+        stripped_cell = cell_str.strip()
+        if not stripped_cell:  # Empty cells are fine
+            return True
+        try:
+            # Replace comma with dot for decimal, then attempt float conversion
+            float(stripped_cell.replace(',',
+                                        '.'))
+            return True
+        except ValueError:
+            return False
+
+    def _load_data_hikmicro(self):
+        """
+        Load the CSV file for HIKMICRO, automatically skipping any header lines.
+        This version has improved header detection to correctly handle lines
+        with only commas and is robust to empty cells and lines with an
+        incorrect number of fields in the data section. NaNs are replaced with 0.0.
+        """
         header_lines: list[str] = []
-        with open(self.file_path, "r", encoding="utf-8") as fh:
-            for line_number, line in enumerate(fh, start=1):
-                # Stop if the header grows ridiculously long (safety net)
-                if line_number > 32:
-                    raise ValueError(
-                        "Could not find a purely numeric data row within the "
-                        "first 32 lines – is the file format correct?"
-                    )
+        detected_delimiter = None
+        first_data_line_num = -1
+        line_is_numeric_for_a_delimiter = False  # Flag to break outer loop
 
-                stripped = line.strip()
-                if not stripped:                     # blank line → header
-                    header_lines.append(line.rstrip("\n"))
-                    continue
+        try:
+            with open(self.file_path,
+                      "r",
+                      encoding="utf-8") as fh:
+                for line_number, line_content in enumerate(fh,
+                                                           start=1):
+                    if line_number > 32:  # Safety net for HIKMICRO header length
+                        raise ValueError(
+                            "Could not find a purely numeric data row within the "
+                            "first 32 lines for HIKMICRO – is the file format correct or header too long?"
+                        )
 
-                # Try to read the row with either comma or semicolon delimiter
-                for delim in (",", ";"):
-                    try:
-                        numeric_cells = [
-                            float(cell.replace(",", "."))
-                            for cell in stripped.split(delim)
-                        ]
-                        # Success: all cells converted → data starts here
-                        first_data_line = line_number
-                        delimiter = delim
+                    stripped_line = line_content.strip()
+
+                    if not stripped_line:  # Blank line is considered part of header
+                        header_lines.append(line_content.rstrip("\n"))
+                        continue
+
+                    # Try common delimiters, prioritizing comma for HIKMICRO
+                    for delim_char_to_try in (",", ";"):
+                        cells = stripped_line.split(delim_char_to_try)
+
+                        if not cells:  # Should not occur if stripped_line is not empty
+                            continue
+
+                        # Check if all cells are either empty or convertible to float
+                        all_cells_valid_format = all(self._is_cell_convertible_or_empty(cell) for cell in cells)
+
+                        if all_cells_valid_format:
+                            # If all cells are valid (empty or numeric),
+                            # ensure it's not a line of pure commas (which results in all empty strings after split).
+                            # A true data line must contain at least one cell that isn't just whitespace.
+                            is_line_of_only_empty_cells_after_split = all(not cell.strip() for cell in cells)
+
+                            if not is_line_of_only_empty_cells_after_split:
+                                # This is identified as the first data line.
+                                detected_delimiter = delim_char_to_try
+                                first_data_line_num = line_number
+                                line_is_numeric_for_a_delimiter = True
+                                break  # Break from delimiter check loop
+                            # else: it's a line like ",,," which is still header/metadata
+                        # else (not all_cells_valid_format):
+                        #   This means at least one cell is non-empty and non-numeric, so it's a header.
+                        #   Continue to the next delimiter or next line if this was the last delimiter.
+
+                    if line_is_numeric_for_a_delimiter:
+                        # First data line found, break from line enumeration loop
                         break
-                    except ValueError:
-                        delimiter = None
-                else:
-                    # At least one cell was non‑numeric → still header
-                    header_lines.append(line.rstrip("\n"))
-                    continue
-                # Numeric row found, exit loop
-                break
+                    else:
+                        # This line is confirmed as a header line (either non-numeric parts or only commas)
+                        header_lines.append(line_content.rstrip("\n"))
 
-        # No numeric line found?
-        if delimiter is None:
+        except FileNotFoundError:
+            raise FileNotFoundError(f"HIKMICRO data file not found: {self.file_path}")
+        except Exception as e:
+            raise RuntimeError(f"Error processing HIKMICRO file {self.file_path} during header detection: {e}")
+
+        if detected_delimiter is None or first_data_line_num == -1:
             raise ValueError(
-                "Unable to auto‑detect numeric data rows; check the file."
+                "Unable to auto‑detect the start of numeric data rows or delimiter for HIKMICRO. "
+                "Please check the file format."
             )
 
         self.header = header_lines if header_lines else None
-        skiprows = len(header_lines)
+        skiprows = first_data_line_num - 1
 
-        # ---------- Phase 2: parse the numeric matrix with pandas -----------
-        self.data = (
-            pd.read_csv(
+        try:
+            loaded_data_pd = pd.read_csv(
                 self.file_path,
                 header=None,
                 skiprows=skiprows,
-                sep=delimiter,
+                sep=detected_delimiter,
                 engine="python",
-            ).to_numpy()
-        )
+                on_bad_lines='warn'
+            )
+            # Convert to numpy array and replace any NaNs with 0.0
+            self.data = np.nan_to_num(loaded_data_pd.to_numpy(),
+                                      nan=0.0)
 
+        except Exception as e:
+            raise RuntimeError(f"Pandas failed to parse HIKMICRO data from {self.file_path} "
+                               f"or convert to NumPy (skiprows={skiprows}, delimiter='{detected_delimiter}'): {e}")
+
+    def _load_data_nec(self):
+        """
+        Load data for NEC camera.
+        This is a basic implementation assuming CSV with NO header.
+        It tries common delimiters (',' or ';') and decimal styles ('.' or ',').
+        NaNs are replaced with 0.0.
+        """
+        self.header = None
+
+        configurations = [
+            {"sep": ',', "decimal": '.'},
+            {"sep": ';', "decimal": '.'},
+            {"sep": ';', "decimal": ','}
+        ]
+
+        last_error = None
+        data_loaded_successfully = False
+
+        for config in configurations:
+            try:
+                loaded_data_pd = pd.read_csv(
+                    self.file_path,
+                    header=None,
+                    sep=config["sep"],
+                    decimal=config["decimal"],
+                    engine='python',
+                    skipinitialspace=True,
+                    on_bad_lines='warn'
+                )
+                # Convert to numpy array and replace any NaNs with 0.0
+                self.data = np.nan_to_num(loaded_data_pd.to_numpy(),
+                                          nan=0.0)
+                data_loaded_successfully = True
+                return
+            except FileNotFoundError:
+                raise FileNotFoundError(f"NEC data file not found: {self.file_path}")
+            except (pd.errors.ParserError, ValueError, TypeError) as e:
+                last_error = e
+            except Exception as e:
+                last_error = e
+
+        if not data_loaded_successfully:  # Check flag instead of self.data is None
+            if last_error is not None:
+                raise ValueError(
+                    f"Failed to parse NEC data from '{self.file_path}' with all attempted configurations. "
+                    f"Last error: {last_error}"
+                )
+            else:  # Should not be reached if configurations were tried
+                raise ValueError(f"Failed to parse NEC data from '{self.file_path}', and no specific parsing error was caught.")
 
     def plot(self,
              ax=None,
@@ -90,24 +199,73 @@ class IntensityMap:
         Plot the intensity map using matplotlib.
         """
         if self.data is None:
-            raise ValueError("Data not loaded. Call load_data() first.")
+            load_method_suggestion = f"load_data() for camera '{self.camera_name}'"
+            raise ValueError(f"Data not loaded. Call {load_method_suggestion} first.")
+
+        if not isinstance(self.data,
+                          np.ndarray) or not np.issubdtype(self.data.dtype,
+                                                           np.number):
+            try:
+                self.data = np.nan_to_num(np.array(self.data,
+                                                   dtype=float),
+                                          nan=0.0)
+            except ValueError as e:
+                raise ValueError(f"Data is not purely numeric and could not be converted. Error: {e}. "
+                                 "Please check the loaded data content.")
+
         if ax is None:
             fig, ax = plt.subplots()
-        # Display the data as an image with a colorbar
+
         im = ax.imshow(self.data,
-                       cmap='viridis')
-        ax.set_title(title)
-        plt.colorbar(im,
-                     ax=ax)
+                       cmap='viridis',
+                       interpolation='nearest')
+        ax.set_title(title if title != 'Intensity Map' else f'{self.camera_name} Intensity Map')
+
+        cbar = plt.colorbar(im,
+                            ax=ax,
+                            label='Intensity')
+
+        plt.show()
         return ax
 
+
 if __name__ == '__main__':
-    path = '/Users/Shared/Files From c.localized/Gabriel_UniBern_Local/DataAnalysis/Low cost THz Camera/20250514/NEC_camera/Spectral Dependece/LP10 Humidity 1/20250514_134932_227_001_10_01_10.csv'
-    intensity_map = IntensityMap(file_path=path)
-    intensity_map.load_data()
-    intensity_map.plot()
+    # Example for HIKMICRO camera (using the path from the error message or your sample)
+    # path_hik_example = '/Users/Shared/Files From c.localized/Gabriel_UniBern_Local/DataAnalysis/Low cost THz Camera/20250508/Power_series/IR_00045_50degrees.csv'
+    path_hik_example = 'IR_00040_90degrees.csv'  # Assuming the uploaded file is in the same directory or provide full path
 
+    print(f"Attempting to load HIKMICRO camera data from: {path_hik_example}")
+    intensity_map_hik = IntensityMap(file_path=path_hik_example,
+                                     camera_name='HIKMICRO')
+    try:
+        intensity_map_hik.load_data()
+        print(f"HIKMICRO data loaded successfully from {path_hik_example}.")
+        print(f"Header lines found: {len(intensity_map_hik.header) if intensity_map_hik.header else 0}")
+        # for h_line in intensity_map_hik.header or []: # Uncomment to print detected header
+        #     print(f"  H: {h_line}")
+        print(f"Data shape: {intensity_map_hik.data.shape}")
+        # print(f"Sample data (first 5x5): \n{intensity_map_hik.data[:5,:5]}")
+        intensity_map_hik.plot(title='HIKMICRO Camera Intensity Map Example')
+    except Exception as e:
+        print(f"Error loading or plotting HIKMICRO data from {path_hik_example}: {e}")
+        import traceback
 
+        traceback.print_exc()
 
+    print("-" * 30)
 
+    # Example for NEC camera
+    # path_nec_example = '/Users/Shared/Files From c.localized/Gabriel_UniBern_Local/DataAnalysis/Low cost THz Camera/20250514/NEC_camera/Spectral Dependece/LP10 Humidity 1/20250514_134932_227_001_10_01_10.csv'
+    # if path_nec_example: # Only run if path is set
+    #     print(f"Attempting to load NEC camera data from: {path_nec_example}")
+    #     intensity_map_nec = IntensityMap(file_path=path_nec_example, camera_name='NEC')
+    #     try:
+    #         intensity_map_nec.load_data()
+    #         print(f"NEC data loaded successfully from {path_nec_example}.")
+    #         print(f"Data shape: {intensity_map_nec.data.shape}")
+    #         intensity_map_nec.plot(title='NEC Camera Intensity Map')
+    #     except Exception as e:
+    #         print(f"Error loading or plotting NEC data from {path_nec_example}: {e}")
+    #         import traceback
+    #         traceback.print_exc()
 
