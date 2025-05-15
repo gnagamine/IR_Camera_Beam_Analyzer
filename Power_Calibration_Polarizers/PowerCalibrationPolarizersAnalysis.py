@@ -1,11 +1,19 @@
 from PowerExtractorFromPolarizer import PowerExtractorFromPolarizers
 import matplotlib
-if ("pycharm" in matplotlib.get_backend().lower()) or ("backend_interagg" in matplotlib.get_backend().lower()):
-    # Prefer a GUI backend; fall back to the non-interactive 'Agg' backend.
+try:
+    # Attempt to use TkAgg backend, which usually works well for GUIs.
+    # This MUST be called before importing pyplot.
+    matplotlib.use('TkAgg')
+except ImportError:
+    print("Warning: TkAgg backend not available. Plot window may not appear.")
+    print("Consider installing tkinter in your Python environment (e.g., 'pip install tk').")
+    print("Falling back to a non-interactive backend (Agg).")
     try:
-        matplotlib.use("TkAgg")
-    except Exception:
-        matplotlib.use("Agg")
+        matplotlib.use('Agg') # Fallback to a non-interactive backend
+    except ImportError:
+        print("Warning: Agg backend also not available. Plotting might fail.")
+        # Matplotlib will try its default if Agg also fails.
+
 
 if __name__ == "__main__":
 
