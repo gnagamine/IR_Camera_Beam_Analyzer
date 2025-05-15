@@ -18,50 +18,66 @@ class AnalysisIRCamera:
     def __init__(self,
                  dir_path,
                  signal_filename,
-                 background_filename):
+                 background_filename=None,
+                 camera_name = 'HIKMICRO'):
         """
         Initialize with file paths for the signal and background CSV files.
         """
         self.signal_filename = signal_filename
-        self.background_filename = background_filename
         signal_path =  os.path.join(dir_path, signal_filename)
-        background_path = os.path.join(dir_path, background_filename)
+
 
         self.dir_path = dir_path
-        self.pixel_size_um = 13
-        self.signal = IntensityMap(signal_path)
-        self.background = IntensityMap(background_path)
+        if camera_name == 'HIKMICRO':
+            self.pixel_size_um = 13
+            background_path = os.path.join(dir_path,
+                                           background_filename)
+            self.background_filename = background_filename
+            self.background = IntensityMap(background_path)
+            self.raw_signal = IntensityMap(signal_path,
+                                           camera_name = camera_name)
+
+        if camera_name == 'NEC':
+            self.pixel_size_um = 23.5
+            self.background = None
+            self.raw_signal = IntensityMap(signal_path,
+                                           camera_name = camera_name)
+
         self.load_data()
-        self.subtracted = None
+        self.processed_signal = self.subtract_background()
 
     def load_data(self):
         """
         Load data for both the signal and background.
         """
-        self.signal.load_data()
-        self.background.load_data()
+        self.raw_signal.load_data()
+        if self.background is not None: self.background.load_data()
 
     def subtract_background(self):
         """
         Subtract the background data from the signal data.
         """
-        if self.signal.data is None or self.background.data is None:
+        if self.raw_signal.data is None:
             raise ValueError("Data not loaded. Call load_data() first.")
         # Ensure that the arrays are of the same shape
-        if self.signal.data.shape != self.background.data.shape:
-            raise ValueError("Signal and background data must have the same shape.")
-        self.subtracted = self.signal.data - self.background.data
-        print('background subtracted')
-        return self.subtracted
+        if self.background is not None:
+            if self.raw_signal.data.shape != self.background.data.shape:
+                raise ValueError("Signal and background data must have the same shape.")
+        if self.background is not None :
+            self.processed_signal = self.raw_signal.data - self.background.data
+            print('background subtracted')
+        if self.background is None: self.processed_signal = self.raw_signal.data
+
+        return self.processed_signal
 
     def plot_maps(self):
         """
         Plot the signal, background, and background-subtracted maps side by side.
         """
-        if self.signal.data is None or self.background.data is None:
+        if self.raw_signal.data is None or self.background.data is None:
             raise ValueError("Data not loaded. Call load_data() first.")
         # Calculate the subtracted map if not already done
-        if self.subtracted is None:
+        if self.processed_signal is None:
             self.subtract_background()
 
         # Create a figure with 3 subplots
@@ -70,15 +86,15 @@ class AnalysisIRCamera:
                                 figsize=(15, 5))
 
         # Plot signal
-        self.signal.plot(ax=axs[0],
-                         title="Signal")
+        self.raw_signal.plot(ax=axs[0],
+                             title="Signal")
 
         # Plot background
         self.background.plot(ax=axs[1],
                              title="Background")
 
         # Plot signal minus background
-        im = axs[2].imshow(self.subtracted,
+        im = axs[2].imshow(self.processed_signal,
                            cmap='viridis')
         axs[2].set_title("Signal - Background")
         plt.colorbar(im,
@@ -91,13 +107,13 @@ class AnalysisIRCamera:
         """
         Plot the signal, background, and background-subtracted maps side by side with axes in micrometers.
         """
-        if self.signal.data is None or self.background.data is None:
+        if self.raw_signal.data is None or self.background.data is None:
             raise ValueError("Data not loaded. Call load_data() first.")
         # Calculate the subtracted map if not already done
-        if self.subtracted is None:
+        if self.processed_signal is None:
             self.subtract_background()
         # Calculate the extent of the image in micrometers
-        rows, cols = self.signal.data.shape
+        rows, cols = self.raw_signal.data.shape
         extent = [0, self.pixel_size_um * cols, 0, self.pixel_size_um * rows]
 
         # Create a figure with 3 subplots
@@ -106,7 +122,7 @@ class AnalysisIRCamera:
                                 figsize=(15, 5))
 
         # Plot signal
-        im0 = axs[0].imshow(self.signal.data,
+        im0 = axs[0].imshow(self.raw_signal.data,
                             cmap='viridis',
                             extent=extent)
         axs[0].set_title("Signal")
@@ -126,7 +142,7 @@ class AnalysisIRCamera:
                      ax=axs[1])
 
         # Plot signal minus background
-        im2 = axs[2].imshow(self.subtracted,
+        im2 = axs[2].imshow(self.processed_signal,
                             cmap='viridis',
                             extent=extent)
         axs[2].set_title("Signal - Background")
@@ -144,19 +160,19 @@ class AnalysisIRCamera:
         Plot the signal, background, and background-subtracted maps in three separate figures with axes in micrometers.
         The colorbar for the difference plot is labeled as "temperature difference in celcius".
         """
-        if self.signal.data is None or self.background.data is None:
+        if self.raw_signal.data is None or self.background.data is None:
             raise ValueError("Data not loaded. Call load_data() first.")
         # Calculate the subtracted map if not already done
-        if self.subtracted is None:
+        if self.processed_signal is None:
             self.subtract_background()
 
         # Calculate the extent of the image in micrometers (data shape: [rows, cols])
-        rows, cols = self.signal.data.shape
+        rows, cols = self.raw_signal.data.shape
         extent = [0, self.pixel_size_um * cols, 0, self.pixel_size_um * rows]
 
         # Figure for Signal
         fig1, ax1 = plt.subplots(figsize=(7, 5))
-        im0 = ax1.imshow(self.signal.data, cmap='viridis', extent=extent)
+        im0 = ax1.imshow(self.raw_signal.data, cmap='viridis', extent=extent)
         ax1.set_title("Signal")
         ax1.set_xlabel("x (um)")
         ax1.set_ylabel("y (um)")
@@ -172,7 +188,7 @@ class AnalysisIRCamera:
 
         # Figure for Signal - Background
         fig3, ax3 = plt.subplots(figsize=(7, 5))
-        im2 = ax3.imshow(self.subtracted, cmap='viridis', extent=extent)
+        im2 = ax3.imshow(self.processed_signal, cmap='viridis', extent=extent)
         ax3.set_title("Signal - Background")
         ax3.set_xlabel("x (um)")
         ax3.set_ylabel("y (um)")
@@ -319,9 +335,9 @@ class AnalysisIRCamera:
         The beam widths are returned in micrometers by multiplying the fitted sigma values (in pixels)
         by the pixel size.
         """
-        if self.subtracted is None:
+        if self.processed_signal is None:
             self.subtract_background()
-        data = self.subtracted
+        data = self.processed_signal
         rows, cols = data.shape
         x = np.arange(cols)
         y = np.arange(rows)
@@ -367,7 +383,7 @@ class AnalysisIRCamera:
         The fitted model is generated using the parameters from fit_gaussian().
         """
         # Ensure that the subtracted data is available
-        if self.subtracted is None:
+        if self.processed_signal is None:
             self.subtract_background()
 
         # Get the fit parameters; this will print beam widths as well
@@ -375,7 +391,7 @@ class AnalysisIRCamera:
         amplitude, xo, yo, sigma_x, sigma_y, offset = popt
 
         # Prepare grid for evaluation
-        data = self.subtracted
+        data = self.processed_signal
         rows, cols = data.shape
         x = np.arange(cols)
         y = np.arange(rows)

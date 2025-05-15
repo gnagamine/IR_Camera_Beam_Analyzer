@@ -1,4 +1,5 @@
 import matplotlib
+
 try:
     # Attempt to use TkAgg backend, which usually works well for GUIs.
     # This MUST be called before importing pyplot.
@@ -8,12 +9,12 @@ except ImportError:
     print("Consider installing tkinter in your Python environment (e.g., 'pip install tk').")
     print("Falling back to a non-interactive backend (Agg).")
     try:
-        matplotlib.use('Agg') # Fallback to a non-interactive backend
+        matplotlib.use('Agg')  # Fallback to a non-interactive backend
     except ImportError:
         print("Warning: Agg backend also not available. Plotting might fail.")
         # Matplotlib will try its default if Agg also fails.
 
-import matplotlib.pyplot as plt # Now import pyplot
+import matplotlib.pyplot as plt  # Now import pyplot
 import numpy as np
 import pandas as pd
 
@@ -163,6 +164,7 @@ class IntensityMap:
         This is a basic implementation assuming CSV with NO header.
         It tries common delimiters (',' or ';') and decimal styles ('.' or ',').
         NaNs are replaced with 0.0.
+        The first and last columns are removed from the final data.
         """
         self.header = None
 
@@ -187,15 +189,27 @@ class IntensityMap:
                     on_bad_lines='warn'
                 )
                 # Convert to numpy array and replace any NaNs with 0.0
-                self.data = np.nan_to_num(loaded_data_pd.to_numpy(),
+                temp_data = np.nan_to_num(loaded_data_pd.to_numpy(),
                                           nan=0.0)
+
+                # Remove the first and last columns if data is not empty and has enough columns
+                if temp_data.ndim == 2 and temp_data.shape[1] > 2:
+                    self.data = temp_data[:, 1:-1]
+                elif temp_data.ndim == 2 and temp_data.shape[1] <= 2:
+                    # If 2 or fewer columns, it's unclear how to remove first AND last.
+                    # Keep as is or raise error/warning. For now, keep as is.
+                    print(f"Warning: NEC data has {temp_data.shape[1]} columns. Cannot remove both first and last. Using data as is.")
+                    self.data = temp_data
+                else:  # If not 2D (e.g. 1D or empty), keep as is.
+                    self.data = temp_data
+
                 data_loaded_successfully = True
-                return # Exit after successful load
+                return  # Exit after successful load
             except FileNotFoundError:
                 raise FileNotFoundError(f"NEC data file not found: {self.file_path}")
             except (pd.errors.ParserError, ValueError, TypeError) as e:
                 last_error = e
-            except Exception as e: # Catch any other unexpected error
+            except Exception as e:  # Catch any other unexpected error
                 last_error = e
 
         if not data_loaded_successfully:
@@ -206,6 +220,7 @@ class IntensityMap:
                 )
             else:
                 raise ValueError(f"Failed to parse NEC data from '{self.file_path}', and no specific parsing error was caught.")
+        print(self.data)
 
     def plot(self,
              ax=None,
@@ -214,6 +229,7 @@ class IntensityMap:
         Plot the intensity map using matplotlib.
         The color scale is automatically adjusted using percentiles to enhance visibility.
         """
+        # print(self.data) # This was the line you added for debugging
         if self.data is None:
             load_method_suggestion = f"load_data() for camera '{self.camera_name}'"
             raise ValueError(f"Data not loaded. Call {load_method_suggestion} first.")
@@ -253,9 +269,9 @@ class IntensityMap:
         # This helps to ignore extreme outliers and focus on the main data range.
         # If data is completely flat, vmin and vmax will be the same; imshow handles this.
         vmin = np.percentile(self.data,
-                             2)
+                             0)  # Using 0th percentile (min)
         vmax = np.percentile(self.data,
-                             100)
+                             100)  # Using 100th percentile (max)
 
         # If vmin and vmax are the same (e.g., flat data or after percentile clipping on near-flat data),
         # adjust them slightly to prevent issues with some backends or color mapping.
@@ -287,20 +303,51 @@ class IntensityMap:
         plt.show()  # Use plt.show() to display the plot and run GUI event loop
         return fig, ax
 
+
 if __name__ == '__main__':
+    # Example for HIKMICRO camera
+    path_hik_example = '/Users/Shared/Files From c.localized/Gabriel_UniBern_Local/DataAnalysis/Low cost THz Camera/20250508/Power_series/IR_00045_50degrees.csv'
+    #path_hik_example = 'IR_00040_90degrees.csv'
 
+    print(f"Attempting to load HIKMICRO camera data from: {path_hik_example}")
+    intensity_map_hik = IntensityMap(file_path=path_hik_example,
+                                     camera_name='HIKMICRO')
+    try:
+        intensity_map_hik.load_data()
+        print(f"HIKMICRO data loaded successfully from {path_hik_example}.")
+        print(f"Header lines found: {len(intensity_map_hik.header) if intensity_map_hik.header else 0}")
+        print(f"Data shape after NaN to zero conversion: {intensity_map_hik.data.shape}")
 
-    #Example for NEC camera
+        fig_hik, ax_hik = intensity_map_hik.plot(title='HIKMICRO Camera Intensity Map Example')
+
+    except Exception as e:
+        print(f"Error loading or plotting HIKMICRO data from {path_hik_example}: {e}")
+        import traceback
+
+        traceback.print_exc()
+
+    print("-" * 30)
+
+    # Example for NEC camera
     path_nec_example = '/Users/Shared/Files From c.localized/Gabriel_UniBern_Local/DataAnalysis/Low cost THz Camera/20250514/NEC_camera/Spectral Dependece/LP10 Humidity 1/20250514_134932_227_001_10_01_10.csv'
-    if path_nec_example: # Only run if path is set
+    if path_nec_example and "Gabriel_UniBern_Local" in path_nec_example:  # Basic check if path seems valid
         print(f"Attempting to load NEC camera data from: {path_nec_example}")
-        intensity_map_nec = IntensityMap(file_path=path_nec_example, camera_name='NEC')
+        intensity_map_nec = IntensityMap(file_path=path_nec_example,
+                                         camera_name='NEC')
         try:
             intensity_map_nec.load_data()
             print(f"NEC data loaded successfully from {path_nec_example}.")
-            print(f"Data shape: {intensity_map_nec.data.shape}")
+            print(f"Original NEC data shape: {intensity_map_nec.data.shape if intensity_map_nec.data is not None else 'None'}")  # Check shape before potential modification
+
+            # The column removal is now inside _load_data_nec
+
+            print(f"Final NEC data shape for plotting: {intensity_map_nec.data.shape if intensity_map_nec.data is not None else 'None'}")
             intensity_map_nec.plot(title='NEC Camera Intensity Map')
         except Exception as e:
             print(f"Error loading or plotting NEC data from {path_nec_example}: {e}")
             import traceback
+
             traceback.print_exc()
+    else:
+        print(f"Skipping NEC camera example as path seems incorrect or not set: {path_nec_example}")
+
