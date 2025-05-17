@@ -236,6 +236,7 @@ class AnalysisIRCamera:
         amplitude = data.max() - offset
         amplitude = max(amplitude, 1e-6)          # guard against zero peak
 
+
         # ----- Peak position for the beam centre (xo, yo) ------------------
         # Use the pixel with maximum intensity as the initial centre.
         row_peak, col_peak = np.unravel_index(np.argmax(data), data.shape)
@@ -250,14 +251,14 @@ class AnalysisIRCamera:
         total_intensity = data.sum() or 1.0  # prevent divide‑by‑zero
 
         # ----- Second moments for initial sigmas --------------------------
-        sigma_x = np.sqrt(((X - xo) ** 2 * data).sum() / total_intensity)
-        sigma_y = np.sqrt(((Y - yo) ** 2 * data).sum() / total_intensity)
+        sigma_x = np.sqrt(((X - xo) ** 2 * data).sum() / total_intensity)/1.5
+        sigma_y = np.sqrt(((Y - yo) ** 2 * data).sum() / total_intensity)/1.5
 
         # Fallbacks if the image is too flat or noisy
         if not np.isfinite(sigma_x) or sigma_x == 0:
-            sigma_x = cols / 6
+            sigma_x = cols / 9
         if not np.isfinite(sigma_y) or sigma_y == 0:
-            sigma_y = rows / 6
+            sigma_y = rows / 9
 
         # ----- Clamp values to stay inside image bounds and pos‑offset -----
         xo = min(max(xo, 0), cols - 1)
@@ -266,6 +267,13 @@ class AnalysisIRCamera:
         # but here we clamp to at least the 1 % percentile to avoid overshoot)
         if offset < -1e3:   # arbitrary large negative guard
             offset = -1e3
+
+        print(f"Initial guess amplitude: {amplitude}")
+        print(f"Initial guess xo: {xo}")
+        print(f"Initial guess yo: {yo}")
+        print(f"Initial guess sigma_x: {sigma_x}")
+        print(f"Initial guess sigma_y: {sigma_y}")
+        print(f"Initial guess offset: {offset}")
 
         return amplitude, xo, yo, sigma_x, sigma_y, offset
 
@@ -364,12 +372,19 @@ class AnalysisIRCamera:
         beam_width_x_um = sigma_x * self.pixel_size_um
         beam_width_y_um = sigma_y * self.pixel_size_um
 
+        # Convert 1‑e² Gaussian sigma to FWHM (Full Width at Half Maximum)
+        fwhm_factor = 2 * np.sqrt(2 * np.log(2))  # ≈ 2.3548
+        fwhm_x_um = beam_width_x_um * fwhm_factor
+        fwhm_y_um = beam_width_y_um * fwhm_factor
+
         fitting_coefficients = {
             "amplitude": amplitude,
             "xo": xo,
             "yo": yo,
             "sigma_x": beam_width_x_um,
             "sigma_y": beam_width_y_um,
+            "fwhm_x": fwhm_x_um,
+            "fwhm_y": fwhm_y_um,
             "offset": offset,
         }
         fig, ax = None, None

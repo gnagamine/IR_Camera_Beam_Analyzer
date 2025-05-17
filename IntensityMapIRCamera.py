@@ -306,30 +306,30 @@ class IntensityMap:
 
 if __name__ == '__main__':
     # Example for HIKMICRO camera
-    path_hik_example = '/Users/Shared/Files From c.localized/Gabriel_UniBern_Local/DataAnalysis/Low cost THz Camera/20250508/Power_series/IR_00045_50degrees.csv'
-    #path_hik_example = 'IR_00040_90degrees.csv'
-
-    print(f"Attempting to load HIKMICRO camera data from: {path_hik_example}")
-    intensity_map_hik = IntensityMap(file_path=path_hik_example,
-                                     camera_name='HIKMICRO')
-    try:
-        intensity_map_hik.load_data()
-        print(f"HIKMICRO data loaded successfully from {path_hik_example}.")
-        print(f"Header lines found: {len(intensity_map_hik.header) if intensity_map_hik.header else 0}")
-        print(f"Data shape after NaN to zero conversion: {intensity_map_hik.data.shape}")
-
-        fig_hik, ax_hik = intensity_map_hik.plot(title='HIKMICRO Camera Intensity Map Example')
-
-    except Exception as e:
-        print(f"Error loading or plotting HIKMICRO data from {path_hik_example}: {e}")
-        import traceback
-
-        traceback.print_exc()
-
-    print("-" * 30)
+    # path_hik_example = '/Users/Shared/Files From c.localized/Gabriel_UniBern_Local/DataAnalysis/Low cost THz Camera/20250508/Power_series_old/IR_00045_50degrees.csv'
+    # #path_hik_example = 'IR_00040_90degrees.csv'
+    #
+    # print(f"Attempting to load HIKMICRO camera data from: {path_hik_example}")
+    # intensity_map_hik = IntensityMap(file_path=path_hik_example,
+    #                                  camera_name='HIKMICRO')
+    # try:
+    #     intensity_map_hik.load_data()
+    #     print(f"HIKMICRO data loaded successfully from {path_hik_example}.")
+    #     print(f"Header lines found: {len(intensity_map_hik.header) if intensity_map_hik.header else 0}")
+    #     print(f"Data shape after NaN to zero conversion: {intensity_map_hik.data.shape}")
+    #
+    #     fig_hik, ax_hik = intensity_map_hik.plot(title='HIKMICRO Camera Intensity Map Example')
+    #
+    # except Exception as e:
+    #     print(f"Error loading or plotting HIKMICRO data from {path_hik_example}: {e}")
+    #     import traceback
+    #
+    #     traceback.print_exc()
+    #
+    # print("-" * 30)
 
     # Example for NEC camera
-    path_nec_example = '/Users/Shared/Files From c.localized/Gabriel_UniBern_Local/DataAnalysis/Low cost THz Camera/20250514/NEC_camera/Spectral Dependece/LP10 Humidity 1/20250514_134932_227_001_10_01_10.csv'
+    path_nec_example ='/Users/Shared/Files From c.localized/Gabriel_UniBern_Local/DataAnalysis/Low cost THz Camera/20250516/position series_NEC/each_delay/1,35 mm.csv'
     if path_nec_example and "Gabriel_UniBern_Local" in path_nec_example:  # Basic check if path seems valid
         print(f"Attempting to load NEC camera data from: {path_nec_example}")
         intensity_map_nec = IntensityMap(file_path=path_nec_example,

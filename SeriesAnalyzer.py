@@ -7,28 +7,70 @@ import numpy as np
 class SeriesAnalyzer:
     def __init__(self,
                  dir_path,
-                 background_filename):
+                 background_filename= None,
+                 camera_name = 'HIKMICRO',
+                 bool_individual_backgrounds_taken = False):
 
         self.dir_path = dir_path
+        self.camera_name = camera_name
+        self.bool_individual_backgrounds_taken = bool_individual_backgrounds_taken
         self.background_filename = background_filename
+
+    def get_background_filename(self,
+                                signal_filename=None,
+                                filename_list=None):
+        if self.camera_name == 'HIKMICRO' and self.bool_individual_backgrounds_taken is False:
+            return self.background_filename
+        if self.camera_name == 'HIKMICRO' and self.bool_individual_backgrounds_taken is False and self.background_filename is None:
+            print(f"no background was given. Either enter a background filename or set bool_individual_backgrounds_taken to True, so the script gets the background automatically from the filename")
+            return None
+        if self.bool_individual_backgrounds_taken is True:
+            print('Using backgrounds taken individually')
+            if signal_filename is None:
+                print ("Signal filename is None")
+                return None
+
+            # Construct the expected background filename
+            expected_background_name = f"background {signal_filename}"
+
+            # Check if the constructed background name exists in the list of files
+            if filename_list is not None and expected_background_name in filename_list:
+                return expected_background_name
+            else:
+                # Handle cases where the expected background file is not found
+                # For example, print a warning or return None
+                print(f"Warning: Background file '{expected_background_name}' not found for signal '{signal_filename}'.")
+                return None
+        return None  # Default return if no conditions are met
 
     def get_all_fitting_coefficients(self,
                                      bool_plot_2D_maps = False,
-                                     bool_get_angles = False):
+                                     bool_get_angles = False,
+                                     known_angle=None,
+                                     known_voltage_at_known_angle_in_V=None):
         filename_list = os.listdir(self.dir_path)
         fitting_coefficients_list = []
         for filename in filename_list:
-            if filename.endswith('.csv') and filename != self.background_filename and not filename.startswith('.'):
+            if filename.endswith('.csv') and filename != self.background_filename and not filename.startswith('.') and not filename.__contains__('background'):
                 signal_filename = filename
+                background_filename = self.get_background_filename(signal_filename = signal_filename,
+                                                                  filename_list = filename_list)
                 analysis = AnalysisIRCamera(dir_path = self.dir_path,
                                     signal_filename =signal_filename,
-                                    background_filename = self.background_filename)
+                                    background_filename = background_filename,
+                                    camera_name=self.camera_name)
                 popt, fitting_coefficients, _, _ = analysis.fit_gaussian(bool_save_plots=bool_plot_2D_maps)
                 fitting_coefficients["filename"] = signal_filename
                 fitting_coefficients_list.append(fitting_coefficients)
+        fitting_coefficients_df = pd.DataFrame(fitting_coefficients_list)
         if bool_get_angles:
             fitting_coefficients_df = self.generate_angle_column(pd.DataFrame(fitting_coefficients_list))
-            fitting_coefficients_df = self.generate_powers_column(fitting_coefficients_df)
+            if known_angle is None or known_voltage_at_known_angle_in_V is None:
+                print('Please enter the known angle and known voltage at known angle in V')
+                return
+            fitting_coefficients_df = self.generate_powers_column(fitting_coefficients_df,
+                                                                  known_angle=known_angle,
+                                                                  kown_voltage_at_known_angle_in_V=known_voltage_at_known_angle_in_V)
         return fitting_coefficients_df
 
     def generate_angle_column(self,
@@ -47,27 +89,33 @@ class SeriesAnalyzer:
                 "'filename' column not found — cannot extract angle values."
             )
 
+        regex_pattern = r"(\d+)\s?degrees"
+
         angle = (
             fitting_coefficients_df["filename"]
-            .str.extract(r"_(\d+)degrees", expand=False)
-            .astype(float)        # convert to numeric; NaN for non‑matches
+            .str.extract(regex_pattern,
+                         expand=False)
+            .astype(float)  # convert to numeric; NaN for non‑matches
         )
 
         fitting_coefficients_df = fitting_coefficients_df.assign(angle=angle)
         return fitting_coefficients_df
 
     def generate_powers_column(self,
-                               fitting_coefficients_df):
+                               fitting_coefficients_df,
+                               known_angle=90,
+                               kown_voltage_at_known_angle_in_V=0.73):
         fitting_coefficients_df["Power (uW)"] = PowerExtractorFromPolarizers(known_angle=90,
                                           known_voltage_at_known_angle_in_V=0.73,
                                           desired_angle=fitting_coefficients_df["angle"].values).power_at_angle_uW
         return fitting_coefficients_df
 
     def plot_temperature_vs_power(self,
-                                  fitting_coefficients_df):
+                                                 fitting_coefficients_df,
+                                                 y_label=None):
         """
         Scatter‑plot the fitted peak temperature (amplitude) versus optical
-        power and overlay a least‑squares linear fit.
+        power and overlay a least‑squares linear fit with intercept fixed at zero.
 
         Returns
         -------
@@ -76,26 +124,47 @@ class SeriesAnalyzer:
         ax : matplotlib.axes.Axes
             The axes containing the scatter and fit.
         fit_coeffs : tuple
-            (slope, intercept) of the linear model *y = slope·x + intercept*.
+            (slope, 0) of the linear model *y = slope·x*.
         """
         # Extract x (power) and y (peak temperature) as NumPy arrays
         x = fitting_coefficients_df["Power (uW)"].to_numpy(dtype=float)
         y = fitting_coefficients_df["amplitude"].to_numpy(dtype=float)
 
-        # Perform linear least‑squares fit
-        slope, intercept = np.polyfit(x, y, 1)
-        x_line = np.linspace(x.min(), x.max(), 200)
-        y_line = slope * x_line + intercept
+        # Perform linear least‑squares fit with intercept forced to zero
+        # We need to reshape x to be a column vector for lstsq
+        x_reshaped = x[:, np.newaxis]
+        slope_tuple = np.linalg.lstsq(x_reshaped,
+                                      y,
+                                      rcond=None)
+        slope = slope_tuple[0][0]  # The slope is the first element of the first array returned
+        intercept = 0.0  # Intercept is fixed at zero
+
+        x_line = np.linspace(x.min(),
+                             x.max(),
+                             200)
+        # If x can be zero or negative, and you want the line to start from (0,0)
+        # you might want to adjust x_line. Forcing it to start from 0 if min(x) > 0:
+        # x_line = np.linspace(min(0, x.min()), x.max(), 200)
+        y_line = slope * x_line  # Intercept is zero
 
         # Plot scatter and fit line
         fig, ax = plt.subplots()
-        ax.scatter(x, y, label="Data")
-        ax.plot(x_line, y_line, color="red",
-                label=f"Fit: y = {slope:.2f}x + {intercept:.2f}")
+        ax.scatter(x,
+                   y,
+                   label="Data")
+        ax.plot(x_line,
+                y_line,
+                color="red",
+                label=f"Fit: y = {slope:.2f}x")  # Updated label
         ax.set_xlabel("THz Power (uW)")
-        ax.set_ylabel("Temperature Amplitude (C)")
+        if y_label is None:
+            ax.set_ylabel("Temperature Amplitude (C)")
+        else:
+            ax.set_ylabel(y_label)
+        # The line below was redundant as it's covered by the if/else block above.
+        # ax.set_ylabel("Temperature Amplitude (C)")
         ax.legend()
-        fig.savefig("Temperature_vs_Power.pdf")
+        fig.savefig("Temperature_vs_Power_Zero_Intercept.pdf")  # Consider a different filename
 
         return fig, ax, (slope, intercept)
 
