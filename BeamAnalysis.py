@@ -291,7 +291,7 @@ class BeamAnalysis:
 
         # Figure for Signal
         fig, ax = plt.subplots()
-        im0 = ax.imshow(self.map_array.data, cmap='viridis', extent=extent)
+        im0 = ax.imshow(self.map_array, cmap='viridis', extent=extent)
         ax.set_title("Map")
         ax.set_xlabel("x (um)")
         ax.set_ylabel("y (um)")
