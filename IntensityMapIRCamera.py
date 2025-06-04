@@ -1,18 +1,7 @@
 import matplotlib
+matplotlib.use('macosx')
 
-try:
-    # Attempt to use TkAgg backend, which usually works well for GUIs.
-    # This MUST be called before importing pyplot.
-    matplotlib.use('TkAgg')
-except ImportError:
-    print("Warning: TkAgg backend not available. Plot window may not appear.")
-    print("Consider installing tkinter in your Python environment (e.g., 'pip install tk').")
-    print("Falling back to a non-interactive backend (Agg).")
-    try:
-        matplotlib.use('Agg')  # Fallback to a non-interactive backend
-    except ImportError:
-        print("Warning: Agg backend also not available. Plotting might fail.")
-        # Matplotlib will try its default if Agg also fails.
+import math  # Added for math.floor and math.ceil
 
 import matplotlib.pyplot as plt  # Now import pyplot
 import numpy as np
@@ -28,8 +17,13 @@ class IntensityMap:
         """
         self.file_path = file_path
         self.camera_name = camera_name
+        if camera_name == 'HIKMICRO':
+            self.pixel_size_um = 13
+        if camera_name == 'NEC':
+            self.pixel_size_um = 23.5
         self.data = None
         self.header = None  # Initialize header attribute
+        self.load_data()
 
     def load_data(self):
         """
@@ -198,7 +192,8 @@ class IntensityMap:
                 elif temp_data.ndim == 2 and temp_data.shape[1] <= 2:
                     # If 2 or fewer columns, it's unclear how to remove first AND last.
                     # Keep as is or raise error/warning. For now, keep as is.
-                    print(f"Warning: NEC data has {temp_data.shape[1]} columns. Cannot remove both first and last. Using data as is.")
+                    print(f"Warning: NEC data has {temp_data.shape[1]} columns. Cannot remove both first and last. "
+                          f"Using data as is.")
                     self.data = temp_data
                 else:  # If not 2D (e.g. 1D or empty), keep as is.
                     self.data = temp_data
@@ -219,8 +214,8 @@ class IntensityMap:
                     f"Last error: {last_error}"
                 )
             else:
-                raise ValueError(f"Failed to parse NEC data from '{self.file_path}', and no specific parsing error was caught.")
-        print(self.data)
+                raise ValueError(f"Failed to parse NEC data from '{self.file_path}', and no specific parsing error "
+                                 f"was caught.")
 
     def plot(self,
              ax=None,
@@ -229,6 +224,8 @@ class IntensityMap:
         Plot the intensity map using matplotlib.
         The color scale is automatically adjusted using percentiles to enhance visibility.
         """
+
+        self.load_data()
         # print(self.data) # This was the line you added for debugging
         if self.data is None:
             load_method_suggestion = f"load_data() for camera '{self.camera_name}'"
@@ -303,10 +300,207 @@ class IntensityMap:
         plt.show()  # Use plt.show() to display the plot and run GUI event loop
         return fig, ax
 
+    def crop_data_um(self,
+                     x_range_um: tuple[float | None, float | None] | None = None,
+                     y_range_um: tuple[float | None, float | None] | None = None):
+        """
+        Crops the self.data numpy array based on specified ranges in micrometers.
+
+        The input coordinate system for `x_range_um` and `y_range_um` assumes an origin
+        at the **bottom-left** of the image area.
+        - X increases to the right (columns).
+        - Y increases upwards (rows).
+
+        For example, `y_range_um=(0, 100)` would select the bottom 100 micrometers of the image.
+
+        Note: The underlying `self.data` NumPy array is indexed such that `self.data[0,0]`
+        is the top-left pixel. The conversion from the bottom-left input coordinate
+        system to array indices is handled internally by this method.
+
+        Args:
+            x_range_um (tuple[float | None, float | None] | None, optional):
+                `(xmin_um, xmax_um)` for the x-axis (columns), interpreted from left edge.
+                `xmin_um`: Minimum x-coordinate in micrometers (inclusive).
+                           If None, effectively 0 (leftmost).
+                `xmax_um`: Maximum x-coordinate in micrometers (exclusive).
+                           If None, effectively the full width of the data.
+                If the entire `x_range_um` tuple is None, no cropping on the x-axis.
+            y_range_um (tuple[float | None, float | None] | None, optional):
+                `(ymin_um, ymax_um)` for the y-axis (rows), interpreted from bottom edge.
+                `ymin_um`: Minimum y-coordinate in micrometers from the bottom (inclusive).
+                           If None, effectively 0 (bottommost).
+                `ymax_um`: Maximum y-coordinate in micrometers from the bottom (exclusive).
+                           If None, effectively the full height of the data (up to the top).
+                If the entire `y_range_um` tuple is None, no cropping on the y-axis.
+
+        Raises:
+            ValueError: If data is not loaded or pixel_size_um is invalid.
+        """
+        if self.data is None:
+            load_method_suggestion = f"load_data() for camera '{self.camera_name}'"
+            raise ValueError(f"Data not loaded. Call {load_method_suggestion} first before cropping.")
+
+        if self.data.size == 0:
+            print("Warning: Data is already empty. No crop operation performed.")
+            return
+
+        if self.pixel_size_um is None or self.pixel_size_um <= 0:
+            raise ValueError(
+                f"Pixel size (self.pixel_size_um = {self.pixel_size_um}) is not defined or is invalid for camera '{self.camera_name}'. "
+                "Cannot perform crop in micrometers."
+            )
+
+        num_rows, num_cols = self.data.shape
+
+        # Default slice indices: no cropping (full range)
+        col_start_idx, col_end_idx = 0, num_cols
+        row_start_idx, row_end_idx = 0, num_rows
+
+        # Calculate column (x-axis) slice indices (origin left)
+        if x_range_um is not None:
+            xmin_um, xmax_um = x_range_um
+            # Effective x_min in um from left (0 if None)
+            x_physical_min_um = 0.0 if xmin_um is None else xmin_um
+            # Effective x_max in um from left (total width if None)
+            x_physical_max_um = (num_cols * self.pixel_size_um) if xmax_um is None else xmax_um
+
+            col_start_idx = math.floor(x_physical_min_um / self.pixel_size_um)
+            col_end_idx = math.ceil(x_physical_max_um / self.pixel_size_um)
+
+        # Calculate row (y-axis) slice indices (origin bottom)
+        if y_range_um is not None:
+            ymin_um_input, ymax_um_input = y_range_um
+
+            # Effective y_min in um from bottom (0 if None)
+            y_physical_min_um_from_bottom = 0.0 if ymin_um_input is None else ymin_um_input
+            # Effective y_max in um from bottom (total height if None)
+            y_physical_max_um_from_bottom = (num_rows * self.pixel_size_um) if ymax_um_input is None else ymax_um_input
+
+            # Convert physical y (from bottom=0) to pixel distances from bottom
+            # Smallest pixel index from bottom (inclusive start of range)
+            y_pixel_dist_from_bottom_start = math.floor(y_physical_min_um_from_bottom / self.pixel_size_um)
+            # Largest pixel index from bottom (exclusive end of range)
+            y_pixel_dist_from_bottom_end = math.ceil(y_physical_max_um_from_bottom / self.pixel_size_um)
+
+            # Convert distances from bottom to array row indices (where row 0 is top)
+            # row_start_idx for slice corresponds to the upper physical boundary (ymax_um_input)
+            row_start_idx = num_rows - y_pixel_dist_from_bottom_end
+            # row_end_idx for slice corresponds to the lower physical boundary (ymin_um_input)
+            row_end_idx = num_rows - y_pixel_dist_from_bottom_start
+
+        # Clamp indices to be within the array dimensions
+        col_start_idx = max(0,
+                            col_start_idx)
+        col_end_idx = min(num_cols,
+                          col_end_idx)
+        row_start_idx = max(0,
+                            row_start_idx)
+        row_end_idx = min(num_rows,
+                          row_end_idx)
+
+        if col_start_idx >= col_end_idx:  # Use >= to also catch zero-width selections
+            print(f"Warning: Calculated x-axis crop indices [{col_start_idx}:{col_end_idx}] are invalid or result in "
+                  f"an empty selection. Resulting x-dimension will be empty.")
+            col_end_idx = col_start_idx  # Ensure empty slice if invalid
+
+        if row_start_idx >= row_end_idx:  # Use >= to also catch zero-height selections
+            print(f"Warning: Calculated y-axis crop indices [{row_start_idx}:{row_end_idx}] are invalid or result in "
+                  f"an empty selection. Resulting y-dimension will be empty.")
+            row_end_idx = row_start_idx  # Ensure empty slice if invalid
+
+        original_shape = self.data.shape
+        self.data = self.data[row_start_idx:row_end_idx, col_start_idx:col_end_idx]
+
+    def crop_data_pixels(self,
+                     x_range_pixels = None,
+                     y_range_pixels = None):
+        """
+        Crops the self.data numpy array based on specified ranges in pixels.
+
+
+        Raises:
+            ValueError: If data is not loaded or pixel_size_um is invalid.
+        """
+        if self.data is None:
+            load_method_suggestion = f"load_data() for camera '{self.camera_name}'"
+            raise ValueError(f"Data not loaded. Call {load_method_suggestion} first before cropping.")
+
+        if self.data.size == 0:
+            print("Warning: Data is already empty. No crop operation performed.")
+            return
+
+
+        num_rows, num_cols = self.data.shape
+
+        # Default slice indices: no cropping (full range)
+        col_start_idx, col_end_idx = 0, num_cols
+        row_start_idx, row_end_idx = 0, num_rows
+
+        # Calculate column (x-axis) slice indices (origin left)
+        if x_range_pixels is not None:
+            xmin_um, xmax_um = x_range_pixels
+            xmax_um=int(xmax_um)
+            xmin_um=int(xmin_um)
+            # Effective x_min in um from left (0 if None)
+            x_physical_min_um = 0.0 if xmin_um is None else xmin_um
+            # Effective x_max in um from left (total width if None)
+            x_physical_max_um = (num_cols ) if xmax_um is None else xmax_um
+
+            col_start_idx = math.floor(x_physical_min_um)
+            col_end_idx = math.ceil(x_physical_max_um)
+
+        # Calculate row (y-axis) slice indices (origin bottom)
+        if y_range_pixels is not None:
+            ymin_um_input, ymax_um_input = y_range_pixels
+            ymin_um_input=int(ymin_um_input)
+            ymax_um_input=int(ymax_um_input)
+
+            # Effective y_min in um from bottom (0 if None)
+            y_physical_min_um_from_bottom = 0.0 if ymin_um_input is None else ymin_um_input
+            # Effective y_max in um from bottom (total height if None)
+            y_physical_max_um_from_bottom = (num_rows) if ymax_um_input is None else ymax_um_input
+
+            # Convert physical y (from bottom=0) to pixel distances from bottom
+            # Smallest pixel index from bottom (inclusive start of range)
+            y_pixel_dist_from_bottom_start = math.floor(y_physical_min_um_from_bottom)
+            # Largest pixel index from bottom (exclusive end of range)
+            y_pixel_dist_from_bottom_end = math.ceil(y_physical_max_um_from_bottom)
+
+            # Convert distances from bottom to array row indices (where row 0 is top)
+            # row_start_idx for slice corresponds to the upper physical boundary (ymax_um_input)
+            row_start_idx = num_rows - y_pixel_dist_from_bottom_end
+            # row_end_idx for slice corresponds to the lower physical boundary (ymin_um_input)
+            row_end_idx = num_rows - y_pixel_dist_from_bottom_start
+
+        # Clamp indices to be within the array dimensions
+        col_start_idx = max(0,
+                            col_start_idx)
+        col_end_idx = min(num_cols,
+                          col_end_idx)
+        row_start_idx = max(0,
+                            row_start_idx)
+        row_end_idx = min(num_rows,
+                          row_end_idx)
+
+        if col_start_idx >= col_end_idx:  # Use >= to also catch zero-width selections
+            print(f"Warning: Calculated x-axis crop indices [{col_start_idx}:{col_end_idx}] are invalid or result in "
+                  f"an empty selection. Resulting x-dimension will be empty.")
+            col_end_idx = col_start_idx  # Ensure empty slice if invalid
+
+        if row_start_idx >= row_end_idx:  # Use >= to also catch zero-height selections
+            print(f"Warning: Calculated y-axis crop indices [{row_start_idx}:{row_end_idx}] are invalid or result in "
+                  f"an empty selection. Resulting y-dimension will be empty.")
+            row_end_idx = row_start_idx  # Ensure empty slice if invalid
+
+        original_shape = self.data.shape
+        self.data = self.data[row_start_idx:row_end_idx, col_start_idx:col_end_idx]
+
+
 
 if __name__ == '__main__':
     # Example for HIKMICRO camera
-    # path_hik_example = '/Users/Shared/Files From c.localized/Gabriel_UniBern_Local/DataAnalysis/Low cost THz Camera/20250508/Power_series_old/IR_00045_50degrees.csv'
+    # path_hik_example = '/Users/Shared/Files From c.localized/Gabriel_UniBern_Local/DataAnalysis/Low cost THz
+    # Camera/20250508/Power_series_old/IR_00045_50degrees.csv'
     # #path_hik_example = 'IR_00040_90degrees.csv'
     #
     # print(f"Attempting to load HIKMICRO camera data from: {path_hik_example}")
@@ -329,25 +523,12 @@ if __name__ == '__main__':
     # print("-" * 30)
 
     # Example for NEC camera
-    path_nec_example ='/Users/Shared/Files From c.localized/Gabriel_UniBern_Local/DataAnalysis/Low cost THz Camera/20250516/position series_NEC/each_delay/1,35 mm.csv'
-    if path_nec_example and "Gabriel_UniBern_Local" in path_nec_example:  # Basic check if path seems valid
-        print(f"Attempting to load NEC camera data from: {path_nec_example}")
-        intensity_map_nec = IntensityMap(file_path=path_nec_example,
-                                         camera_name='NEC')
-        try:
-            intensity_map_nec.load_data()
-            print(f"NEC data loaded successfully from {path_nec_example}.")
-            print(f"Original NEC data shape: {intensity_map_nec.data.shape if intensity_map_nec.data is not None else 'None'}")  # Check shape before potential modification
+    path_nec_example = ('/Users/Shared/Files From c.localized/Gabriel_UniBern_Local/DataAnalysis/Low cost THz '
+                        'Camera/20250516/position series_NEC/each_delay/1,35 mm.csv')
 
-            # The column removal is now inside _load_data_nec
-
-            print(f"Final NEC data shape for plotting: {intensity_map_nec.data.shape if intensity_map_nec.data is not None else 'None'}")
-            intensity_map_nec.plot(title='NEC Camera Intensity Map')
-        except Exception as e:
-            print(f"Error loading or plotting NEC data from {path_nec_example}: {e}")
-            import traceback
-
-            traceback.print_exc()
-    else:
-        print(f"Skipping NEC camera example as path seems incorrect or not set: {path_nec_example}")
-
+    intensity_map_nec = IntensityMap(file_path=path_nec_example,
+                                     camera_name='NEC',
+                                     crop_x_range_um=(-0.5, 0.5),
+                                     crop_y_range_um=(-0.5, 0.5))
+    intensity_map_nec.load_data()
+    data = intensity_map_nec.data

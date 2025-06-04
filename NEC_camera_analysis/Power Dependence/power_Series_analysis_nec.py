@@ -14,4 +14,6 @@ if __name__ == "__main__":
                                                                            known_angle = 90
                                                                            )
     fig, ax, (slope, intercept) = series_analyzer.plot_temperature_vs_power(fitting_coefficients_df,
-                                                                            y_label='Gaussian amplitude (counts)')
+                                                                            y_label='Gaussian amplitude (counts)',
+                                                                            bool_fixed_intercept=False,
+                                                                            title='NEC, fixing intercept')

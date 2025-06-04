@@ -1,12 +1,9 @@
 import numpy as np
 import pandas as pd
 import matplotlib
+matplotlib.use('macosx')
 # Force an interactive GUI backend so that plots appear in their own window
 # Try macOS‑native backend first; fall back to TkAgg if that isn't available.
-try:
-    matplotlib.use("MacOSX")
-except Exception:
-    matplotlib.use("TkAgg")
 
 import matplotlib.pyplot as plt
 plt.ion()  # turn on interactive mode
@@ -14,26 +11,42 @@ from IntensityMapIRCamera import IntensityMap
 import os
 from scipy.optimize import curve_fit
 
-class AnalysisIRCamera:
+class BeamAnalysis:
     def __init__(self,
                  dir_path,
                  signal_filename,
                  background_filename=None,
-                 camera_name = 'HIKMICRO'):
+                 camera_name = None,
+                 crop_range_x_um = None,
+                 crop_range_y_um = None,
+                 crop_range_x_pixels = None,
+                 crop_range_y_pixels = None):
         """
         Initialize with file paths for the signal and background CSV files.
         """
+        if camera_name is None:
+            raise ValueError("Camera name must be specified.")
         self.signal_filename = signal_filename
         signal_path =  os.path.join(dir_path, signal_filename)
+        self.crop_range_x_um = crop_range_x_um
+        self.crop_range_y_um = crop_range_y_um
+        self.crop_range_x_pixels = crop_range_x_pixels
+        self.crop_range_y_pixels = crop_range_y_pixels
 
 
         self.dir_path = dir_path
         if camera_name == 'HIKMICRO':
             self.pixel_size_um = 13
-            background_path = os.path.join(dir_path,
-                                           background_filename)
+            if background_filename is not None:
+                background_path = os.path.join(dir_path,
+                                               background_filename)
+            if background_filename is None:
+                background_filename = self.get_background_filename_from_signal_filename()
+                background_path = os.path.join(dir_path,
+                                               background_filename)
             self.background_filename = background_filename
-            self.background = IntensityMap(background_path)
+            self.background = IntensityMap(background_path,
+                                           camera_name=camera_name)
             self.raw_signal = IntensityMap(signal_path,
                                            camera_name = camera_name)
 
@@ -45,14 +58,77 @@ class AnalysisIRCamera:
 
         self.load_data()
         self.processed_signal = self.subtract_background()
+        self.map_array = self.subtract_background()
+
+    def get_background_filename_from_signal_filename(self):
+        """
+        Scan ``self.dir_path`` for a file that can serve as the background
+        map for *self.signal_filename*.
+
+        A file qualifies if **both** of the following are true (case‑insensitive):
+
+        1. The filename contains the substring ``"background"``.
+        2. The filename also contains the entire *signal* filename
+           (``self.signal_filename``).
+
+        Exactly one such file must be found; otherwise an error is raised.
+
+        Returns
+        -------
+        str
+            The background filename that matches the above criteria.
+
+        Raises
+        ------
+        FileNotFoundError
+            If no candidate file is found.
+        ValueError
+            If more than one candidate file is found.
+        """
+        # List all entries in the directory (case‑insensitive comparison)
+        filenames = os.listdir(self.dir_path)
+        signal_key = self.signal_filename.lower()
+        if signal_key != '0 degrees.csv':
+            candidates = [
+                fname
+                for fname in filenames
+                if "background" in fname.lower() and signal_key in fname.lower()
+            ]
+        if signal_key == '0 degrees.csv':
+            candidates = ['background 0 degrees.csv']
+
+        if len(candidates) == 0:
+            raise FileNotFoundError(
+                f"No background file matching both 'background' and "
+                f"'{self.signal_filename}' found in: {self.dir_path}"
+            )
+
+        if len(candidates) > 1:
+            raise ValueError(
+                "Multiple background files satisfy the criteria: "
+                f"{candidates}.  Please specify the desired file explicitly."
+            )
+
+        return candidates[0]
 
     def load_data(self):
         """
         Load data for both the signal and background.
         """
         self.raw_signal.load_data()
-        if self.background is not None: self.background.load_data()
+        if self.crop_range_x_pixels is not None and self.crop_range_x_um is not None:
+            raise ValueError("crop_range_x_pixels and crop_range_x_um cannot be used together. Please use crop_range_x_um and crop_range_y_um instead.")
 
+        self.raw_signal.crop_data_um(x_range_um=self.crop_range_x_um,
+                                     y_range_um=self.crop_range_y_um)
+        self.raw_signal.crop_data_pixels(x_range_pixels=self.crop_range_x_pixels,
+                                     y_range_pixels=self.crop_range_y_pixels)
+        if self.background is not None:
+            self.background.load_data()
+            self.background.crop_data_um(x_range_um=self.crop_range_x_um,
+                                     y_range_um=self.crop_range_y_um)
+            self.background.crop_data_pixels(x_range_pixels=self.crop_range_x_pixels,
+                                             y_range_pixels=self.crop_range_y_pixels)
     def subtract_background(self):
         """
         Subtract the background data from the signal data.
@@ -62,13 +138,20 @@ class AnalysisIRCamera:
         # Ensure that the arrays are of the same shape
         if self.background is not None:
             if self.raw_signal.data.shape != self.background.data.shape:
+                signal = self.raw_signal.data
+                background = self.background.data
+                print(f"Signal shape: {signal.shape}")
+                print(f"Background shape: {background.shape}")
                 raise ValueError("Signal and background data must have the same shape.")
         if self.background is not None :
             self.processed_signal = self.raw_signal.data - self.background.data
-            print('background subtracted')
         if self.background is None: self.processed_signal = self.raw_signal.data
 
+        if self.background is None and self.camera_name == 'HIKMICRO':
+            raise ValueError("Background data not provided by HIKMICRO. Either comment this error out or provide background data.")
+
         return self.processed_signal
+
 
     def plot_maps(self):
         """
@@ -197,6 +280,45 @@ class AnalysisIRCamera:
 
         plt.show()
 
+    def plot_map_in_pixels(self):
+        """
+        Plot the map array
+        """
+
+        # Calculate the extent of the image in micrometers (data shape: [rows, cols])
+        rows, cols = self.map_array.shape
+        extent = [0, cols, 0,  rows]
+
+        # Figure for Signal
+        fig, ax = plt.subplots()
+        im0 = ax.imshow(self.map_array.data, cmap='viridis', extent=extent)
+        ax.set_title("Map")
+        ax.set_xlabel("x (um)")
+        ax.set_ylabel("y (um)")
+        plt.colorbar(im0, ax=ax)
+
+        return fig, ax
+
+    def plot_background_in_pixels(self):
+        """
+        Plot the map array
+        """
+
+        # Calculate the extent of the image in micrometers (data shape: [rows, cols])
+        rows, cols = self.background.shape
+        extent = [0, cols, 0,  rows]
+
+        # Figure for Signal
+        fig, ax = plt.subplots()
+        im0 = ax.imshow(self.background.data, cmap='viridis', extent=extent)
+        ax.set_title("Map")
+        ax.set_xlabel("x (um)")
+        ax.set_ylabel("y (um)")
+        plt.colorbar(im0, ax=ax)
+
+        return fig, ax
+
+
     def twoD_Gaussian(self,
                       coords,
                       amplitude,
@@ -267,14 +389,6 @@ class AnalysisIRCamera:
         # but here we clamp to at least the 1 % percentile to avoid overshoot)
         if offset < -1e3:   # arbitrary large negative guard
             offset = -1e3
-
-        print(f"Initial guess amplitude: {amplitude}")
-        print(f"Initial guess xo: {xo}")
-        print(f"Initial guess yo: {yo}")
-        print(f"Initial guess sigma_x: {sigma_x}")
-        print(f"Initial guess sigma_y: {sigma_y}")
-        print(f"Initial guess offset: {offset}")
-
         return amplitude, xo, yo, sigma_x, sigma_y, offset
 
     def generate_upper_bound(self,
@@ -457,9 +571,9 @@ if __name__ == "__main__":
     signal_filename = 'Image_THzBeam_after_1inch_parmirror.csv'
     background_filename = 'Image_background_after_1inch_parmirror.csv'
 
-    analysis = AnalysisIRCamera(dir_path = dir_path,
-                        signal_filename =signal_filename,
-                        background_filename = background_filename)
+    analysis = BeamAnalysis(dir_path = dir_path,
+                            signal_filename =signal_filename,
+                            background_filename = background_filename)
     analysis.load_data()
     analysis.subtract_background()
     analysis.plot_maps_micrometer()
@@ -471,9 +585,9 @@ if __name__ == "__main__":
     signal_filename = 'Image_THzBeam_after_2inch_parmirror.csv'
     background_filename = 'Image_background_after_1inch_parmirror.csv'
 
-    analysis_2inch = AnalysisIRCamera(dir_path = dir_path,
-                        signal_filename =signal_filename,
-                        background_filename = background_filename)
+    analysis_2inch = BeamAnalysis(dir_path = dir_path,
+                                  signal_filename =signal_filename,
+                                  background_filename = background_filename)
     analysis_2inch.load_data()
     analysis_2inch.subtract_background()
     analysis_2inch.plot_maps_micrometer()

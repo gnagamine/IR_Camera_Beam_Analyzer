@@ -1,4 +1,4 @@
-from BeamAnalysis import AnalysisIRCamera
+from BeamAnalysis import BeamAnalysis
 import os
 from SeriesAnalyzer import SeriesAnalyzer
 

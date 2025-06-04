@@ -14,5 +14,13 @@ if __name__ == "__main__":
                                                                            known_voltage_at_known_angle_in_V = 0.604,
                                                                            known_angle = 90
                                                                            )
-    fig, ax, (slope, intercept) = series_analyzer.plot_temperature_vs_power(fitting_coefficients_df)
-    fig.show()
+    fig_fixed_intercept, ax_fixed_intercept, (slope_fixed_intercept, intercept_fixed_intercept) = series_analyzer.plot_temperature_vs_power(fitting_coefficients_df,
+                                                                            bool_fixed_intercept=True,
+                                                                            title = 'HIKMICRO New, fixing intercept')
+    fig_fixed_intercept.show()
+
+    fig_no_fixed_intercept, ax_no_fixed_intercept, (slope_no_fixed_intercept, intercept_no_fixed_intercept) = series_analyzer.plot_temperature_vs_power(fitting_coefficients_df,
+                                                                            bool_fixed_intercept=False,
+                                                                            title = 'HIKMICRO New, not fixing intercept')
+    fig_no_fixed_intercept.show()
+

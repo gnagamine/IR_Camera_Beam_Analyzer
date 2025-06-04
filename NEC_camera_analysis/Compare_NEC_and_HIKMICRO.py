@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 # Assuming AnalysisIRCamera is defined in BeamAnalysis and works as expected.
 # If BeamAnalysis also uses matplotlib, ensure backend is set appropriately there or at the very start of your main script.
-from BeamAnalysis import AnalysisIRCamera
+from BeamAnalysis import BeamAnalysis
 import numpy as np  # Added for np.array if fitting_coefficients are not already numpy types
 
 
@@ -13,15 +13,15 @@ class CompareCameras:
                  signal_filename_HIKMICRO,
                  bakcground_filename_HIKMICRO, ):  # Corrected typo: bakcground_filename_HIKMICRO -> background_filename_HIKMICRO
 
-        self.NECAnalysis = AnalysisIRCamera(dir_path=dir_path_NEC,
-                                            signal_filename=signal_filename_NEC,
-                                            camera_name='NEC')
+        self.NECAnalysis = BeamAnalysis(dir_path=dir_path_NEC,
+                                        signal_filename=signal_filename_NEC,
+                                        camera_name='NEC')
 
-        self.HIKMICROAnalysis = AnalysisIRCamera(dir_path=dir_path_HIKMICRO,
-                                                 signal_filename=signal_filename_HIKMICRO,
-                                                 background_filename=bakcground_filename_HIKMICRO,
-                                                 # Corrected typo
-                                                 camera_name='HIKMICRO')
+        self.HIKMICROAnalysis = BeamAnalysis(dir_path=dir_path_HIKMICRO,
+                                             signal_filename=signal_filename_HIKMICRO,
+                                             background_filename=bakcground_filename_HIKMICRO,
+                                             # Corrected typo
+                                             camera_name='HIKMICRO')
 
     def plot_maps_side_by_side(self,
                                plot_width_for_cropping_in_um=500): #TODO center the plots in zero
