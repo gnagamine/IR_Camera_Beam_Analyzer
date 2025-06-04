@@ -37,13 +37,13 @@ class CompareCameras:
                                 figsize=(15, 5))
 
         # Plot NEC
-        rows_NEC, cols_nec = self.NECAnalysis.processed_signal.data.shape
+        rows_NEC, cols_nec = self.NECAnalysis.processed_signal.shape
         extent_NEC = [0, self.NECAnalysis.pixel_size_um * cols_nec, 0, self.NECAnalysis.pixel_size_um * rows_NEC]
         _, NEC_fitting_coefficients, _, _ = self.NECAnalysis.fit_gaussian()
         xo_NEC = NEC_fitting_coefficients['xo']
         yo_NEC = NEC_fitting_coefficients['yo']
 
-        im0 = axs[0].imshow(self.NECAnalysis.processed_signal.data,
+        im0 = axs[0].imshow(self.NECAnalysis.processed_signal,
                             cmap='viridis',
                             extent=extent_NEC)
         axs[0].set_title("NEC")
@@ -71,14 +71,14 @@ class CompareCameras:
                         top_NEC)
 
         # Plot HIKMICRO
-        rows_HIKMICRO, cols_HIKMICRO = self.HIKMICROAnalysis.processed_signal.data.shape
+        rows_HIKMICRO, cols_HIKMICRO = self.HIKMICROAnalysis.processed_signal.shape
         _, HIKMICRO_fitting_coefficients, _, _ = self.HIKMICROAnalysis.fit_gaussian()
         xo_HIKMICRO = HIKMICRO_fitting_coefficients['xo']
         yo_HIKMICRO = HIKMICRO_fitting_coefficients['yo']
         extent_HIKMICRO = [0, self.HIKMICROAnalysis.pixel_size_um * cols_HIKMICRO, 0,
                            self.HIKMICROAnalysis.pixel_size_um * rows_HIKMICRO]
 
-        im1 = axs[1].imshow(self.HIKMICROAnalysis.processed_signal.data,
+        im1 = axs[1].imshow(self.HIKMICROAnalysis.processed_signal,
                             cmap='viridis',
                             extent=extent_HIKMICRO)
         axs[1].set_title("HIKMICRO")
