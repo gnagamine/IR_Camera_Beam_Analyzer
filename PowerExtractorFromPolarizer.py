@@ -1,6 +1,5 @@
 import numpy as np
 import matplotlib
-matplotlib.use('macosx')
 from scipy.optimize import curve_fit
 from CalibrationCurvePolarizersMovingSecond import CalibrationCurveMovingSecondPolarizer
 from CalibrationCurvePolarizersMovingFirst import CalibrationCurveMovingFirstPolarizer
@@ -29,7 +28,7 @@ class PowerExtractorFromPolarizers:
         self.maximum_voltage = self.get_maximum_voltage(known_angle,
                                                         known_voltage_at_known_angle_in_V)
         self.voltage_at_desired_angle = self.get_voltage_at_desired_angle(desired_angle)
-        uW = 10E+6
+        uW = 1E+6
         self.power_at_angle_uW =(self.voltage_at_desired_angle /self.Voltage_to_Watt)*uW
 
 

@@ -8,7 +8,7 @@ class SeriesAnalyzer:
     def __init__(self,
                  dir_path,
                  background_filename= None,
-                 camera_name = 'HIKMICRO',
+                 camera_name = None,
                  bool_individual_backgrounds_taken = False,
                  crop_range_x_um = None,
                  crop_range_y_um = None):

@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 import matplotlib
-matplotlib.use('macosx')
 # Force an interactive GUI backend so that plots appear in their own window
 # Try macOS‑native backend first; fall back to TkAgg if that isn't available.
 
@@ -20,7 +19,10 @@ class BeamAnalysis:
                  crop_range_x_um = None,
                  crop_range_y_um = None,
                  crop_range_x_pixels = None,
-                 crop_range_y_pixels = None):
+                 crop_range_y_pixels = None,
+                 width_in_pixels = None,
+                 beam_center_x_in_pixels = None,
+                 beam_center_y_in_pixels = None,):
         """
         Initialize with file paths for the signal and background CSV files.
         """
@@ -28,10 +30,13 @@ class BeamAnalysis:
             raise ValueError("Camera name must be specified.")
         self.signal_filename = signal_filename
         signal_path =  os.path.join(dir_path, signal_filename)
+
         self.crop_range_x_um = crop_range_x_um
         self.crop_range_y_um = crop_range_y_um
         self.crop_range_x_pixels = crop_range_x_pixels
         self.crop_range_y_pixels = crop_range_y_pixels
+
+        self.camera_name = camera_name
 
 
         self.dir_path = dir_path
@@ -55,7 +60,11 @@ class BeamAnalysis:
             self.background = None
             self.raw_signal = IntensityMap(signal_path,
                                            camera_name = camera_name)
-
+        if camera_name == 'gentec':
+            self.pixel_size_um = 5.5
+            self.background = None
+            self.raw_signal = IntensityMap(signal_path,
+                                           camera_name = camera_name)
         self.load_data()
         self.processed_signal = self.subtract_background()
         self.map_array = self.subtract_background()
@@ -88,7 +97,7 @@ class BeamAnalysis:
         # List all entries in the directory (case‑insensitive comparison)
         filenames = os.listdir(self.dir_path)
         signal_key = self.signal_filename.lower()
-        if signal_key != '0 degrees.csv':
+        if signal_key != '0 degrees.csv' and signal_key!='5 degrees.csv':
             candidates = [
                 fname
                 for fname in filenames
@@ -96,6 +105,8 @@ class BeamAnalysis:
             ]
         if signal_key == '0 degrees.csv':
             candidates = ['background 0 degrees.csv']
+        if signal_key=='5 degrees.csv':
+            candidates=['background 5 degrees.csv']
 
         if len(candidates) == 0:
             raise FileNotFoundError(
@@ -106,7 +117,8 @@ class BeamAnalysis:
         if len(candidates) > 1:
             raise ValueError(
                 "Multiple background files satisfy the criteria: "
-                f"{candidates}.  Please specify the desired file explicitly."
+                f"filename: {signal_key}"
+                f"candidates: {candidates}.  Please specify the desired file explicitly."
             )
 
         return candidates[0]
@@ -293,8 +305,8 @@ class BeamAnalysis:
         fig, ax = plt.subplots()
         im0 = ax.imshow(self.map_array, cmap='viridis', extent=extent)
         ax.set_title("Map")
-        ax.set_xlabel("x (um)")
-        ax.set_ylabel("y (um)")
+        ax.set_xlabel("x (pixels)")
+        ax.set_ylabel("y (pixels)")
         plt.colorbar(im0, ax=ax)
 
         return fig, ax
@@ -490,6 +502,7 @@ class BeamAnalysis:
         fwhm_factor = 2 * np.sqrt(2 * np.log(2))  # ≈ 2.3548
         fwhm_x_um = beam_width_x_um * fwhm_factor
         fwhm_y_um = beam_width_y_um * fwhm_factor
+        beam_width_average = (beam_width_x_um+beam_width_y_um)/2
 
         fitting_coefficients = {
             "amplitude": amplitude,
@@ -500,6 +513,7 @@ class BeamAnalysis:
             "fwhm_x": fwhm_x_um,
             "fwhm_y": fwhm_y_um,
             "offset": offset,
+            'beam_width_average': beam_width_average
         }
         fig, ax = None, None
         if bool_save_plots:

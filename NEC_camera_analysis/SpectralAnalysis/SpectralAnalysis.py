@@ -12,9 +12,9 @@ if __name__ == "__main__":
     crop_range_Y_um_HIKMICRO = (data_center_HIKMICRO[1] - data_range_um, data_center_HIKMICRO[1] + data_range_um,)
 
     series_analyzer_HIKMICRO = SeriesAnalyzer(dir_path=dir_path_HIKMICRO,
-                                     camera_name='HIKMICRO',
-                                     crop_range_x_um=crop_range_X_um_HIKMICRO,
-                                     crop_range_y_um=crop_range_Y_um_HIKMICRO)
+                                              camera_name='HIKMICRO',
+                                              crop_range_x_um=crop_range_X_um_HIKMICRO,
+                                              crop_range_y_um=crop_range_Y_um_HIKMICRO)
 
 
     fitting_coefficients_df_HIKMICRO = series_analyzer_HIKMICRO.get_all_fitting_coefficients(bool_plot_2D_maps = True,)
@@ -27,9 +27,9 @@ if __name__ == "__main__":
     crop_range_Y_um_NEC = (data_center_NEC[1] - data_range_um, data_center_NEC[1] + data_range_um,)
 
     series_analyzer_NEC = SeriesAnalyzer(dir_path=dir_path_NEC,
-                                     camera_name='NEC',
-                                     crop_range_x_um=crop_range_X_um_NEC,
-                                     crop_range_y_um=crop_range_Y_um_NEC)
+                                         camera_name='NEC',
+                                         crop_range_x_um=crop_range_X_um_NEC,
+                                         crop_range_y_um=crop_range_Y_um_NEC)
 
     fitting_coefficients_df_NEC = series_analyzer_NEC.get_all_fitting_coefficients(bool_plot_2D_maps = True,)
 

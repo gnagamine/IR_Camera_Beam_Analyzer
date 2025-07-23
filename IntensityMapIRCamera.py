@@ -1,5 +1,4 @@
 import matplotlib
-matplotlib.use('macosx')
 
 import math  # Added for math.floor and math.ceil
 
@@ -21,6 +20,9 @@ class IntensityMap:
             self.pixel_size_um = 13
         if camera_name == 'NEC':
             self.pixel_size_um = 23.5
+        if camera_name == 'gentec':
+            self.pixel_size_um = 5.5
+
         self.data = None
         self.header = None  # Initialize header attribute
         self.load_data()
@@ -34,6 +36,8 @@ class IntensityMap:
             self._load_data_hikmicro()
         elif self.camera_name == 'NEC':
             self._load_data_nec()
+        elif self.camera_name == 'gentec':
+            self._load_data_gentec()
         # Add more camera types here with `elif self.camera_name == 'OTHER_CAMERA': self._load_data_other_camera()`
         else:
             raise ValueError(f"Unsupported camera type: {self.camera_name}. "
@@ -56,6 +60,71 @@ class IntensityMap:
             return True
         except ValueError:
             return False
+
+    def _load_data_gentec(self):
+        """
+        Load data for Gentec camera.
+        It skips header lines, extracts pixel size if available,
+        and reads the semicolon-separated integer data.
+        NaNs are replaced with 0.0.
+        """
+        header_lines = []
+        data_lines_start_idx = -1
+        temp_pixel_size_um = None
+
+        try:
+            with open(self.file_path, "r", encoding="utf-8") as fh:
+                for i, line_content in enumerate(fh):
+                    stripped_line = line_content.strip()
+                    if not stripped_line:  # Skip empty lines
+                        header_lines.append(line_content.rstrip("\n"))
+                        continue
+
+                    if "Pixel Size:" in stripped_line:
+                        try:
+                            # Attempt to extract pixel size
+                            temp_pixel_size_um = float(stripped_line.split(":")[1].strip())
+                        except (IndexError, ValueError) as e:
+                            print(f"Warning: Could not parse Pixel Size from line: '{stripped_line}'. Error: {e}")
+                        header_lines.append(line_content.rstrip("\n"))
+                        continue
+
+                    # Check if the line looks like data (all elements are numbers when split by ';')
+                    cells = stripped_line.split(';')
+                    if all(cell.strip().isdigit() for cell in cells if cell.strip()): # Check if all non-empty cells are digits
+                        data_lines_start_idx = i
+                        break  # Found the first data line
+                    else:
+                        header_lines.append(line_content.rstrip("\n"))
+
+            if data_lines_start_idx == -1:
+                raise ValueError("Could not find the start of data lines in Gentec file.")
+
+            self.header = header_lines if header_lines else None
+            if temp_pixel_size_um is not None:
+                self.pixel_size_um = temp_pixel_size_um
+                print(f"Gentec pixel size updated to: {self.pixel_size_um} um from file header.")
+            elif self.pixel_size_um is None: # If not set by constructor and not found in header
+                 print("Warning: Pixel size for Gentec not found in header and not set during initialization. "
+                       "Cropping in 'um' might not work as expected.")
+
+
+            # Read the data section
+            loaded_data_pd = pd.read_csv(
+                self.file_path,
+                header=None,
+                skiprows=data_lines_start_idx,
+                sep=';',
+                engine="python",
+                on_bad_lines='warn',
+                dtype=float # Assume data is numeric, pandas will try to convert
+            )
+            self.data = np.nan_to_num(loaded_data_pd.to_numpy(), nan=0.0)
+
+        except FileNotFoundError:
+            raise FileNotFoundError(f"Gentec data file not found: {self.file_path}")
+        except Exception as e:
+            raise RuntimeError(f"Error processing Gentec file {self.file_path}: {e}")
 
     def _load_data_hikmicro(self):
         """
