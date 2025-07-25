@@ -9,9 +9,11 @@ matplotlib.use('macosx')
 class VideoAnalyzer:  # Renamed for clarity, as it now handles std dev
     def __init__(self,
                  csv_path,
+                 lim_number_of_frames,
                  camera_name='HIKMICRO', ):
         """Initialize the TemperatureMapAnalyzer with the path to the CSV file."""
         self.csv_path = csv_path
+        self.lim_number_of_frames=lim_number_of_frames
         if camera_name == 'HIKMICRO':
             self.header_rows = 4
             self.matrix_rows = 192
@@ -43,8 +45,11 @@ class VideoAnalyzer:  # Renamed for clarity, as it now handles std dev
 
                     # Read the matrix
                     matrix_data = []
+                    line_num=0
                     for _ in range(self.matrix_rows):
+                        line_num+=1
                         row_line = f.readline().strip()
+
                         parts = row_line.split(',')
                         while parts and parts[-1] == '':  # Handle trailing commas
                             parts.pop()
@@ -53,8 +58,17 @@ class VideoAnalyzer:  # Renamed for clarity, as it now handles std dev
                         row = [float(x.strip()) if x.strip() else np.nan for x in parts]
 
                         if len(row) != self.matrix_cols:
+                            # --- NEW DEBUGGING CODE ---
+                            print("\n--- FAILED ON THIS LINE ---")
+                            print(f"Line Number within matrix: {line_num}")
+                            print(f"Expected columns: {self.matrix_cols}, but got: {len(row)}")
+                            print(f"Raw line content that failed: {repr(row_line)}")
+                            print(f"'parts' list after split: {repr(parts)}")
+                            print("---------------------------\n")
+                            # --- END DEBUGGING CODE ---
+
                             raise ValueError(
-                                f"Expected {self.matrix_cols} columns, got {len(row)} in row: {row_line[:50]}..."
+                                f"Expected {self.matrix_cols} columns, got {len(row)} in line: {line_num}"
                             )
                         matrix_data.append(row)
 
@@ -69,6 +83,9 @@ class VideoAnalyzer:  # Renamed for clarity, as it now handles std dev
                         sum_of_values += current_matrix
                         sum_of_squares += np.square(current_matrix)
                     num_frames += 1
+
+                    if self.lim_number_of_frames is not None and num_frames >= self.lim_number_of_frames:
+                        break
 
                     # Skip the empty row
                     empty_line = f.readline().strip()

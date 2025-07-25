@@ -41,7 +41,7 @@ class BeamAnalysis:
 
         self.dir_path = dir_path
         if camera_name == 'HIKMICRO':
-            self.pixel_size_um = 13
+            self.pixel_size_um = 12
             if background_filename is not None:
                 background_path = os.path.join(dir_path,
                                                background_filename)

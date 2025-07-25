@@ -33,6 +33,7 @@ class VideoAnalyzer_NEC:  # Renamed for clarity, as it now handles std dev
                 maps_array_list.append(map_array)
 
         # Stack all frames into a 3D array: (num_frames, height, width)
+        print(f'Number of frames analyzed: {len(maps_array_list)}')
         stacked_maps = np.stack(maps_array_list,
                                 axis=0)
 
