@@ -29,7 +29,7 @@ class TwoDArrayAnalysis:
         self.crop_range_y_um = crop_range_y_um
 
         if camera_name == 'HIKMICRO':
-            self.pixel_size_um = 13
+            self.pixel_size_um = 12
 
         if camera_name == 'NEC':
             self.pixel_size_um = 23.5

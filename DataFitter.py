@@ -211,6 +211,16 @@ class DataFitter:
 
         return fig, ax
 
+    def get_fitting_coefficients(self,
+                                 x_data,
+                                 y_data, ):
+
+        self.fit_data(x_data=x_data,
+                      y_data=y_data)
+        current_fit_params = self.fit_params
+
+        return current_fit_params
+
     def plot_data_with_fit_for_paper(self,
                                      x_data,
                                      y_data,
@@ -273,7 +283,7 @@ class DataFitter:
                     y_data_np,
                     xerr=x_error,
                     fmt='o',  # 'o' for points, no line
-                    linewidth = .5,
+                    linewidth=.5,
                     markersize=4,
                     capsize=2,
                     color=InputParametersClass().color_nice_blue,
@@ -300,7 +310,7 @@ class DataFitter:
         ax.legend(fontsize=fontsize,
                   frameon=False)
         ax.grid(False, )
-        #ax.set_xlim(0, 52)
+        # ax.set_xlim(0, 52)
         fig_size = 2.2
         fig.set_size_inches(fig_size * 1.2,
                             fig_size)
@@ -309,7 +319,7 @@ class DataFitter:
         if show_plot:
             plt.show()
         if save_folder is not None:
-            fig.savefig(save_folder +'/'+ camera_name + '_linearity.pdf',
+            fig.savefig(save_folder + '/' + camera_name + '_linearity.pdf',
                         bbox_inches='tight')
 
         return fig, ax

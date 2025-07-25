@@ -26,7 +26,7 @@ class SeriesAnalyzer_2:
         self.Y_ref_position_for_background_subtraction = Y_ref_position_for_background_subtraction
 
         if self.camera_name == 'HIKMICRO':
-            self.pixel_size = 13
+            self.pixel_size = 12
         if self.camera_name == 'NEC':
             self.pixel_size = 23.5
         if self.camera_name == 'gentec':
@@ -277,7 +277,7 @@ class SeriesAnalyzer_2:
     def _get_lists_of_temperature_and_powers_maps(self,
                                                   save_data_plot_bool: bool = False,
                                                   known_angle=None,
-                                                  kown_voltage_at_known_angle_in_V=None,
+                                                  known_voltage_at_known_angle_in_V=None,
                                                   moved_polarizer=None):
 
         filenames_list = os.listdir(self.dir_path)
@@ -287,7 +287,7 @@ class SeriesAnalyzer_2:
             if filename.endswith('.csv') and not filename.startswith('.') and not filename.__contains__('background'):
                 power = self._extract_power_from_filename(filename=filename,
                                                           known_angle=known_angle,
-                                                          kown_voltage_at_known_angle_in_V=kown_voltage_at_known_angle_in_V,
+                                                          known_voltage_at_known_angle_in_V=known_voltage_at_known_angle_in_V,
                                                           moved_polarizer=moved_polarizer)
                 map_array = self._load_map_array(filename)
                 map_array_Y_bg_subtracted = BeamCharacteristicsExtractor(map_array=map_array,
@@ -313,7 +313,7 @@ class SeriesAnalyzer_2:
     def compute_slope_map(self,
                           save_data_plot_bool: bool = False,
                           known_angle=None,
-                          kown_voltage_at_known_angle_in_V=None,
+                          known_voltage_at_known_angle_in_V=None,
                           moved_polarizer=None):
         """
         Compute the slope of temperature vs. power for each pixel.
@@ -331,7 +331,7 @@ class SeriesAnalyzer_2:
         list_of_power_map_arrays, list_of_temperature_maps = self._get_lists_of_temperature_and_powers_maps(
             save_data_plot_bool=save_data_plot_bool,
             known_angle=known_angle,
-            kown_voltage_at_known_angle_in_V=kown_voltage_at_known_angle_in_V,
+            known_voltage_at_known_angle_in_V=known_voltage_at_known_angle_in_V,
             moved_polarizer=moved_polarizer)
 
         # Check that both lists have the same number of arrays
@@ -502,7 +502,7 @@ class SeriesAnalyzer_2:
     def _extract_power_from_filename(self,
                                      filename: str = None,
                                      known_angle=None,
-                                     kown_voltage_at_known_angle_in_V=None,
+                                     known_voltage_at_known_angle_in_V=None,
                                      moved_polarizer=None):
 
         match = re.search(r"(\d+(?:\.\d+)?)\s*degrees",
@@ -511,7 +511,7 @@ class SeriesAnalyzer_2:
         angle = float(match.group(1)) if match else np.nan
 
         power = PowerExtractorFromPolarizers(known_angle=known_angle,
-                                             known_voltage_at_known_angle_in_V=kown_voltage_at_known_angle_in_V,
+                                             known_voltage_at_known_angle_in_V=known_voltage_at_known_angle_in_V,
                                              desired_angle=angle,
                                              moved_polarizer=moved_polarizer).power_at_angle_uW
 

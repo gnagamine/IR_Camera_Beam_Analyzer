@@ -22,7 +22,7 @@ class PixelPlotter:
         self.known_angle = known_angle
         self.known_voltage_at_known_angle_in_V = known_voltage_at_known_angle_in_V
         if self.camera_name == 'HIKMICRO':
-            self.pixel_size_um = 13
+            self.pixel_size_um = 12
         if self.camera_name == 'NEC':
             self.pixel_size_um = 23.5
 

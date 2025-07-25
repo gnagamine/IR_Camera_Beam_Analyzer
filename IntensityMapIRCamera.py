@@ -17,7 +17,7 @@ class IntensityMap:
         self.file_path = file_path
         self.camera_name = camera_name
         if camera_name == 'HIKMICRO':
-            self.pixel_size_um = 13
+            self.pixel_size_um = 12
         if camera_name == 'NEC':
             self.pixel_size_um = 23.5
         if camera_name == 'gentec':
