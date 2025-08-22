@@ -2,12 +2,8 @@ import os
 
 import numpy as np
 import matplotlib.pyplot as plt
-import csv
-import matplotlib
-from sympy.solvers.diophantine.diophantine import length
 
 from IntensityMapIRCamera import IntensityMap
-matplotlib.use('macosx')
 
 # Removed duplicate imports of numpy and matplotlib.pyplot
 

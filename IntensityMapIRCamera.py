@@ -1,5 +1,3 @@
-import matplotlib
-
 import math  # Added for math.floor and math.ceil
 
 import matplotlib.pyplot as plt  # Now import pyplot

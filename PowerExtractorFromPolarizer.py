@@ -1,5 +1,4 @@
 import numpy as np
-import matplotlib
 from scipy.optimize import curve_fit
 from CalibrationCurvePolarizersMovingSecond import CalibrationCurveMovingSecondPolarizer
 from CalibrationCurvePolarizersMovingFirst import CalibrationCurveMovingFirstPolarizer

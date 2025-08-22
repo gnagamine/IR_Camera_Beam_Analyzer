@@ -1,11 +1,6 @@
 import numpy as np
-import pandas as pd
-import matplotlib
-# Force an interactive GUI backend so that plots appear in their own window
-# Try macOS‑native backend first; fall back to TkAgg if that isn't available.
 
 import matplotlib.pyplot as plt
-plt.ion()  # turn on interactive mode
 from IntensityMapIRCamera import IntensityMap
 import os
 from scipy.optimize import curve_fit
@@ -67,7 +62,7 @@ class BeamAnalysis:
                                            camera_name = camera_name)
         self.load_data()
         self.processed_signal = self.subtract_background()
-        self.map_array = self.subtract_background()
+        self.map_array = self.processed_signal
 
     def get_background_filename_from_signal_filename(self):
         """

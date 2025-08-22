@@ -1,6 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
+from StandartFigureClass import StandardFigure
+from InputParametersClass import InputParametersClass
 from sympy.printing.pretty.pretty_symbology import line_width
 
 
@@ -102,7 +104,7 @@ class DataFitter:
 
         try:
             # Perform the curve fit
-            popt, pcov = curve_fit(self.model_function,
+            popt, pcov =  curve_fit(self.model_function,
                                    x_data_np,
                                    y_data_np,
                                    p0=initial_guess)
@@ -121,8 +123,6 @@ class DataFitter:
             self.fit_covariance = None
             raise
 
-    import numpy as np
-    import matplotlib.pyplot as plt
 
     def plot_data_with_fit(self,
                            x_data,
@@ -255,8 +255,7 @@ class DataFitter:
         Raises:
             ValueError: If fit_params are not provided and no fit has been performed yet.
         """
-        from StandartFigureClass import StandardFigure
-        from InputParametersClass import InputParametersClass
+
 
         if fit_params is None and self.fit_params is None:
             self.fit_data(x_data=x_data,

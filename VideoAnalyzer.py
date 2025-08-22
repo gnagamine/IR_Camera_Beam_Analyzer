@@ -1,8 +1,5 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import csv
-import matplotlib
-matplotlib.use('macosx')
 
 # Removed duplicate imports of numpy and matplotlib.pyplot
 

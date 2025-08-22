@@ -3,8 +3,6 @@ import os
 import numpy as np
 import re
 
-from sympy.printing.glsl import known_functions
-
 from BeamAnalysis import BeamAnalysis
 from BeamCharacteristicsExtractor import BeamCharacteristicsExtractor
 import matplotlib.pyplot as plt
@@ -35,6 +33,29 @@ class SeriesAnalyzer_2:
         self._check_if_arguments_exist()
 
     def plot_map_in_pixels(self,
+                           map_array: np.ndarray):
+        """
+        Plot the map array
+        """
+
+        # Calculate the extent of the image in micrometers (data shape: [rows, cols])
+        rows, cols = map_array.shape
+        extent = [0, cols, 0, rows]
+
+        # Figure for Signal
+        fig, ax = plt.subplots()
+        im0 = ax.imshow(map_array,
+                        cmap='viridis',
+                        extent=extent)
+        ax.set_title("Map")
+        ax.set_xlabel("x (pixels)")
+        ax.set_ylabel("y (pixels)")
+        plt.colorbar(im0,
+                     ax=ax)
+
+        return fig, ax
+
+    def plot_map_in_pixels_for_paper(self,
                            map_array: np.ndarray):
         """
         Plot the map array
@@ -160,6 +181,25 @@ class SeriesAnalyzer_2:
                     else:
                         fig.savefig(f"{filename[:-4]}.pdf")
                     plt.close(fig)
+
+    def plot_all_maps_for_paper(self,
+                      save_data_plot_bool: bool = True,
+                      normalize=None, ):
+
+        filenames_list = os.listdir(self.dir_path)
+
+        for filename in filenames_list:
+            if filename.endswith('.csv') and not filename.startswith('.') and not filename.__contains__('background'):
+                map_array = self._load_map_array(filename)
+                if normalize is True:
+                    map_array = map_array / np.max(map_array)
+                fig, ax = self.plot_map_in_pixels_for_paper(map_array)
+                if save_data_plot_bool:
+                    if normalize is not None:
+                        fig.savefig(f"{filename[:-4]}_normalized.pdf")
+                    else:
+                        fig.savefig(f"{filename[:-4]}.pdf")
+                plt.close(fig)
 
     def plot_all_map_analysis(self,
                       save_data_plot_bool: bool = True):
@@ -371,7 +411,7 @@ class SeriesAnalyzer_2:
     def get_beam_char_df_w_powers(self,
                                   save_data_plot_bool: bool = False,
                                   known_angle=None,
-                                  kown_voltage_at_known_angle_in_V=None,
+                                  known_voltage_at_known_angle_in_V=None,
                                   moved_polarizer=None,
                                   beam1_over_e2_width = None):
 
@@ -380,7 +420,7 @@ class SeriesAnalyzer_2:
 
         beam_characterization_df_with_powers = self._generate_powers_column(beam_characterization_df_with_angles,
                                                                             known_angle=known_angle,
-                                                                            kown_voltage_at_known_angle_in_V=kown_voltage_at_known_angle_in_V,
+                                                                            known_voltage_at_known_angle_in_V=known_voltage_at_known_angle_in_V,
                                                                             moved_polarizer=moved_polarizer)
         if beam1_over_e2_width is not None:
             uW_to_mW = 1e-3
@@ -426,6 +466,7 @@ class SeriesAnalyzer_2:
                              array_map,
                              power):
         total_temperature = np.sum(array_map)
+        print (total_temperature)
         power_map_array = array_map * power / total_temperature
         return power_map_array
 
@@ -488,11 +529,11 @@ class SeriesAnalyzer_2:
     def _generate_powers_column(self,
                                 fitting_coefficients_df,
                                 known_angle=None,
-                                kown_voltage_at_known_angle_in_V=None,
+                                known_voltage_at_known_angle_in_V=None,
                                 moved_polarizer: str = None):
 
         fitting_coefficients_df["Power (uW)"] = PowerExtractorFromPolarizers(known_angle=known_angle,
-                                                                             known_voltage_at_known_angle_in_V=kown_voltage_at_known_angle_in_V,
+                                                                             known_voltage_at_known_angle_in_V=known_voltage_at_known_angle_in_V,
                                                                              desired_angle=fitting_coefficients_df[
                                                                                  "angle"].values,
                                                                              moved_polarizer=moved_polarizer).power_at_angle_uW
