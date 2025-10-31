@@ -1,6 +1,6 @@
 import matplotlib
 matplotlib.use('macosx')
-from PixelPlotter import PixelPlotter
+from Code_utilities.PixelPlotter import PixelPlotter
 
 
 

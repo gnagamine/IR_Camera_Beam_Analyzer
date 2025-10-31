@@ -8,7 +8,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from BeamAnalysis import BeamAnalysis
-from TwoDArrayAnalysis import TwoDArrayAnalysis
+from Code_utilities.TwoDArrayAnalysis import TwoDArrayAnalysis
 
 
 class PixelPlotter:

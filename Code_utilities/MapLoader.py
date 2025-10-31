@@ -5,25 +5,32 @@ import numpy as np
 import pandas as pd
 
 
-class IntensityMap:
+class MapLoader:
     def __init__(self,
                  file_path: str,
-                 camera_name: str = 'HIKMICRO'):
+                 camera_name: str
+                 ):
         """
         Initialize with the path to the CSV file and camera name.
+        Returns a numpy array
         """
         self.file_path = file_path
         self.camera_name = camera_name
+        self.data = None
+        self.header = None
+
         if camera_name == 'HIKMICRO':
             self.pixel_size_um = 12
+            self.data_array = self._load_data_hikmicro()
         if camera_name == 'NEC':
             self.pixel_size_um = 23.5
+            self.data_array = self._load_data_nec()
         if camera_name == 'gentec':
             self.pixel_size_um = 5.5
+            self.data_array = self._load_data_gentec()
+        else:
+            print('Insert a valid camera name')
 
-        self.data = None
-        self.header = None  # Initialize header attribute
-        self.load_data()
 
     def load_data(self):
         """
@@ -123,6 +130,7 @@ class IntensityMap:
             raise FileNotFoundError(f"Gentec data file not found: {self.file_path}")
         except Exception as e:
             raise RuntimeError(f"Error processing Gentec file {self.file_path}: {e}")
+        return self.data
 
     def _load_data_hikmicro(self):
         """
@@ -218,6 +226,7 @@ class IntensityMap:
         except Exception as e:
             raise RuntimeError(f"Pandas failed to parse HIKMICRO data from {self.file_path} "
                                f"or convert to NumPy (skiprows={skiprows}, delimiter='{detected_delimiter}'): {e}")
+        return self.data
 
     def _load_data_nec(self):
         """
@@ -283,6 +292,8 @@ class IntensityMap:
             else:
                 raise ValueError(f"Failed to parse NEC data from '{self.file_path}', and no specific parsing error "
                                  f"was caught.")
+
+        return self.data
 
     def plot(self,
              ax=None,

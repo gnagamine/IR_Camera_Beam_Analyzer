@@ -1,8 +1,7 @@
 import matplotlib.pyplot as plt
 # Assuming AnalysisIRCamera is defined in BeamAnalysis and works as expected.
 # If BeamAnalysis also uses matplotlib, ensure backend is set appropriately there or at the very start of your main script.
-from BeamAnalysis import BeamAnalysis
-import numpy as np  # Added for np.array if fitting_coefficients are not already numpy types
+from Code_utilities.BeamAnalysis import BeamAnalysis
 
 
 class CompareCameras:

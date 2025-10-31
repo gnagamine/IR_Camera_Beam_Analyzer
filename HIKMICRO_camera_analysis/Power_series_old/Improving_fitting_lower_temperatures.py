@@ -1,4 +1,4 @@
-from BeamAnalysis import BeamAnalysis
+from Code_utilities.BeamAnalysis import BeamAnalysis
 
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
 import numpy as np
 
 import matplotlib.pyplot as plt
-from IntensityMapIRCamera import IntensityMap
+from Code_utilities.IntensityMapIRCamera import IntensityMap
 import os
 from scipy.optimize import curve_fit
 

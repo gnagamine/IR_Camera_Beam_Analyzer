@@ -1,6 +1,4 @@
-from SeriesAnalyzer import SeriesAnalyzer
-import matplotlib.pyplot as plt
-
+from Code_utilities.SeriesAnalyzer import SeriesAnalyzer
 
 if __name__ == "__main__":
 

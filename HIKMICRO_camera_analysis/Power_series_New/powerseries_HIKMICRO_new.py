@@ -1,5 +1,5 @@
 
-from SeriesAnalyzer import SeriesAnalyzer
+from Code_utilities.SeriesAnalyzer import SeriesAnalyzer
 
 
 

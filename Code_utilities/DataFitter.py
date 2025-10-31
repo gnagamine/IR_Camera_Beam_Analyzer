@@ -1,9 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
-from StandartFigureClass import StandardFigure
-from InputParametersClass import InputParametersClass
-from sympy.printing.pretty.pretty_symbology import line_width
+from Code_utilities.StandartFigureClass import StandardFigure
+from Code_utilities.InputParametersClass import InputParametersClass
 
 
 # --- Model Functions ---
@@ -201,7 +200,6 @@ class DataFitter:
         ax.set_title(title)
         ax.set_xlabel(x_label)
         ax.set_ylabel(y_label)
-        ax.legend()
         ax.grid(True,
                 linestyle=':',
                 alpha=0.7)
@@ -306,8 +304,6 @@ class DataFitter:
 
         ax.set_xlabel(x_label)
         ax.set_ylabel(y_label)
-        ax.legend(fontsize=fontsize,
-                  frameon=False)
         ax.grid(False, )
         # ax.set_xlim(0, 52)
         fig_size = 2.2

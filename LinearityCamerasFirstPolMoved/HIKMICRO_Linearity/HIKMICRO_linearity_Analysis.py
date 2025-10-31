@@ -2,7 +2,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 
 matplotlib.use('macosx')
-from PixelPlotter import PixelPlotter
+from Code_utilities.PixelPlotter import PixelPlotter
 
 if __name__ == '__main__':
     #%%

@@ -3,7 +3,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 
-from IntensityMapIRCamera import IntensityMap
+from Code_utilities.IntensityMapIRCamera import IntensityMap
 
 # Removed duplicate imports of numpy and matplotlib.pyplot
 

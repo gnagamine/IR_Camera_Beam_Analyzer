@@ -1,6 +1,4 @@
-from BeamAnalysis import BeamAnalysis
-import os
-from SeriesAnalyzer import SeriesAnalyzer
+from Code_utilities.SeriesAnalyzer import SeriesAnalyzer
 
 
 

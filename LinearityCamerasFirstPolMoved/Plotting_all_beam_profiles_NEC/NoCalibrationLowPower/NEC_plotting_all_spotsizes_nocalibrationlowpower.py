@@ -1,4 +1,4 @@
-from SeriesAnalyzer import SeriesAnalyzer
+from Code_utilities.SeriesAnalyzer import SeriesAnalyzer
 
 if __name__ == "__main__":
     dir_path_higherpowers = (

@@ -3,8 +3,8 @@ import os
 import numpy as np
 import re
 
-from BeamAnalysis import BeamAnalysis
-from BeamCharacteristicsExtractor import BeamCharacteristicsExtractor
+from Code_utilities.BeamAnalysis import BeamAnalysis
+from Code_utilities.BeamCharacteristicsExtractor import BeamCharacteristicsExtractor
 import matplotlib.pyplot as plt
 from PowerExtractorFromPolarizer import PowerExtractorFromPolarizers
 

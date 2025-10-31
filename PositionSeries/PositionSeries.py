@@ -1,6 +1,6 @@
 import pandas as pd
 
-from SeriesAnalyzer import SeriesAnalyzer
+from Code_utilities.SeriesAnalyzer import SeriesAnalyzer
 
 if __name__ == "__main__":
 
